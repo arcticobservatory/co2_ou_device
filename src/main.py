@@ -12,19 +12,12 @@ from machine import Pin
 from machine import SD
 from ds3231 import DS3231
 
-def pin_handler(arg):
-    print("pin change")
 
-
+# Init external RTC
 # # https://docs.pycom.io/firmwareapi/pycom/machine/i2c.html
-
 ertc = DS3231(0, pins=('P22','P21'))
 
-print(ertc.get_time(True))
-
-# # rtc code
-
-
+# Init external SD card
 # # https://docs.pycom.io/firmwareapi/pycom/machine/spi.html
 SD_CS = Pin('P12')
 spi = SPI(0, mode=SPI.MASTER)
@@ -33,18 +26,17 @@ sd = sdcard.SDCard(spi, SD_CS)
 os.mount(sd, '/sd2')
 print(os.listdir('/sd2'))
 
-# # sd code
-
+# Init external temperature sensor
 # https://docs.pycom.io/tutorials/all/owd.html
 ow = OneWire(Pin('P3'))
 ext_temp = DS18X20(ow)
 
-
-
-
-# ext_temp code
-
+# Init flash detector diode
 # # https://docs.pycom.io/firmwareapi/pycom/machine/pin.html
+
+def pin_handler(arg):
+    print("pin change")
+
 flash_pin = Pin('P4', mode=Pin.IN, pull=Pin.PULL_UP)
 flash_pin.callback(Pin.IRQ_FALLING, pin_handler)
 
@@ -56,23 +48,23 @@ def take_reading():
     ext_t_start_ticks = time.ticks_ms()
 
     # Wait for temperature reading
-    # Reading seems to take around 650 ms (data sheet says under 750 ms)
+    # Temperature reading seems to take around 650 ms (datasheet says under 750 ms)
     while True:
         ext_t_reading = ext_temp.read_temp_async()
         if ext_t_reading != None:
+            ext_t_ticks = time.ticks_diff(ext_t_start_ticks, time.ticks_ms())
             break
         time.sleep_ms(1)
 
-    ext_t_ticks = time.ticks_diff(ext_t_start_ticks, time.ticks_ms())
 
     # Read flash sensor
     flash_reading = flash_pin()
 
     # Read RTC
-    read_time = ertc.get_time(True)
+    time = ertc.get_time(True)
 
     return {
-            "clock": read_time,
+            "time": read_time,
             "ext_t": ext_t_reading,
             "ext_t_ms": ext_t_ticks,
             "flash": flash_reading,
