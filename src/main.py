@@ -61,10 +61,12 @@ def take_reading():
     flash_reading = flash_pin()
 
     # Read RTC
-    time = ertc.get_time(True)
+    wtime = ertc.get_time(True)
+    wtime_raw = time.mktime(wtime)
 
     return {
-            "time": read_time,
+            "wtime": wtime,
+            "wtime_raw": wtime_raw,
             "ext_t": ext_t_reading,
             "ext_t_ms": ext_t_ticks,
             "flash": flash_reading,
