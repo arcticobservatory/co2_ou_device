@@ -1,1 +1,3 @@
 *.conf
+.venv
+.last_load_marker

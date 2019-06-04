@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e -o pipefail
+
+if [ -d .venv ]; then
+    source .venv/bin/activate
+else
+    virtualenv .venv --python=python3
+    source .venv/bin/activate
+    pip install adafruit-ampy
+fi
+
+cd src/
+markerfile=../.last_load_marker
+
+findargs=()
+findargs+=(-type f)
+findargs+=(-not -iname '.*.sw?')    # exclude vim swap files
+
+if [ -f $markerfile ]; then
+    findargs+=(-newer $markerfile)
+fi
+
+IFS=$'\n'
+for F in $(find * ${findargs[*]}); do
+    (set -x; ampy "$@" put "$F" "$F")
+done
+touch $markerfile
