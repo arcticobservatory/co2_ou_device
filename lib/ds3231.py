@@ -1,3 +1,4 @@
+# https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
 # MicroPython DS3231 precison real time clock driver for Pycom devices.
 # Adapted from Pyboard driver at https://github.com/peterhinch/micropython-samples
 # Adapted by Dominik Kapusta, Jan 2018

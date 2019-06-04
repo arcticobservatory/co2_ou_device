@@ -1,3 +1,5 @@
+# https://forum.pycom.io/topic/2064/external-sd-card/20
+
 """
 MicroPython driver for SD cards using SPI bus.
 
