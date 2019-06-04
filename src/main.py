@@ -68,7 +68,11 @@ def take_reading():
     # Read flash sensor
     flash_reading = flash_pin()
 
+    # Read RTC
+    read_time = ertc.get_time(True)
+
     return {
+            "clock": read_time,
             "ext_t": ext_t_reading,
             "ext_t_ms": ext_t_ticks,
             "flash": flash_reading,
