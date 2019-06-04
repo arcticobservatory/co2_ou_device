@@ -1,0 +1,9 @@
+[submodule "thirdparty/micropython"]
+	path = thirdparty/micropython
+	url = https://github.com/micropython/micropython.git
+[submodule "thirdparty/pycom-libraries"]
+	path = thirdparty/pycom-libraries
+	url = https://github.com/pycom/pycom-libraries.git
+[submodule "thirdparty/upython-aq-monitor"]
+	path = thirdparty/upython-aq-monitor
+	url = https://github.com/ayoy/upython-aq-monitor.git
