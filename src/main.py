@@ -1,6 +1,7 @@
 import time
 import os
 import sdcard
+import machine
 
 from machine import I2C
 from machine import SPI
@@ -36,26 +37,45 @@ print(os.listdir('/sd2'))
 
 # https://docs.pycom.io/tutorials/all/owd.html
 ow = OneWire(Pin('P3'))
-temp = DS18X20(ow)
+ext_temp = DS18X20(ow)
 
 
 
 
-# temp code
+# ext_temp code
 
 # # https://docs.pycom.io/firmwareapi/pycom/machine/pin.html
 flash_pin = Pin('P4', mode=Pin.IN, pull=Pin.PULL_UP)
 flash_pin.callback(Pin.IRQ_FALLING, pin_handler)
 
 
+def take_reading():
 
+    # Start temperature reading
+    ext_temp.start_conversion()
+    ext_t_start_ticks = time.ticks_ms()
 
+    # Wait for temperature reading
+    # Reading seems to take around 650 ms (data sheet says under 750 ms)
+    while True:
+        ext_t_reading = ext_temp.read_temp_async()
+        if ext_t_reading != None:
+            break
+        time.sleep_ms(1)
 
+    ext_t_ticks = time.ticks_diff(ext_t_start_ticks, time.ticks_ms())
 
+    # Read flash sensor
+    flash_reading = flash_pin()
+
+    return {
+            "ext_t": ext_t_reading,
+            "ext_t_ms": ext_t_ticks,
+            "flash": flash_reading,
+            }
 
 while True:
-    print(temp.read_temp_async())
-    time.sleep(1)
-    temp.start_conversion()
-    time.sleep(1)
-    print("flash: " + str(flash_pin()))
+
+    reading = take_reading()
+    print(reading)
+    time.sleep(5)
