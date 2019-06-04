@@ -24,7 +24,8 @@ if [ -f $markerfile ]; then
 fi
 
 IFS=$'\n'
-for F in $(find ${findargs[*]}); do
+for F in $(set -x; find "${findargs[@]}"); do
+    #echo "$F"
     (set -x; ampy "$@" put "$F" "$F")
 done
 touch $markerfile
