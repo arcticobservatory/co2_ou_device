@@ -14,15 +14,17 @@ cd src/
 markerfile=../.last_load_marker
 
 findargs=()
-findargs+=(-type f)
+findargs+=(-L)                      # follow symlinks
+findargs+=(*)                       # in subdirectories (without ./ prefix)
+findargs+=(-type f)                 # regular files
 findargs+=(-not -iname '.*.sw?')    # exclude vim swap files
 
 if [ -f $markerfile ]; then
-    findargs+=(-newer $markerfile)
+    findargs+=(-newer $markerfile)  # newer than the last load time
 fi
 
 IFS=$'\n'
-for F in $(find * ${findargs[*]}); do
+for F in $(find ${findargs[*]}); do
     (set -x; ampy "$@" put "$F" "$F")
 done
 touch $markerfile
