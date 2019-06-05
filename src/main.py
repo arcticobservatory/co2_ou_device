@@ -12,34 +12,51 @@ from machine import Pin
 from machine import SD
 from ds3231 import DS3231
 
+class TaskContext(object):
+    def __init__(self, desc):
+        self.desc = desc
+
+    def __enter__(self):
+        print("{:40}".format(self.desc), end="")
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not exc_type:
+            print("OK")
+        else:
+            print("Fail")
+
 class Co2Unit(object):
 
     def __init__(self):
+        self.init_rtc()
         self.init_sensors()
 
+    def init_rtc(self):
+        with TaskContext("Init RTC"):
+            # Init external RTC
+            # # https://docs.pycom.io/firmwareapi/pycom/machine/i2c.html
+            self.ertc = DS3231(0, pins=('P22','P21'))
+        print("\tTime:", self.ertc.get_time())
+
     def init_sensors(self):
+        with TaskContext("Init external temperature sensor"):
+            # https://docs.pycom.io/tutorials/all/owd.html
+            ow = OneWire(Pin('P3'))
+            self.ext_temp = DS18X20(ow)
 
-        # Init external RTC
-        # # https://docs.pycom.io/firmwareapi/pycom/machine/i2c.html
-        self.ertc = DS3231(0, pins=('P22','P21'))
+        with TaskContext("Init flash pin"):
+            # # https://docs.pycom.io/firmwareapi/pycom/machine/pin.html
+            self.flash_pin = Pin('P4', mode=Pin.IN, pull=Pin.PULL_UP)
+            self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
-        # Init external SD card
-        # # https://docs.pycom.io/firmwareapi/pycom/machine/spi.html
-        self.spi = SPI(0, mode=SPI.MASTER)
-        SD_CS = Pin('P12')
-        self.sd = sdcard.SDCard(self.spi, SD_CS)
-        os.mount(self.sd, '/sd2')
-        print(os.listdir('/sd2'))
-
-        # Init external temperature sensor
-        # https://docs.pycom.io/tutorials/all/owd.html
-        ow = OneWire(Pin('P3'))
-        self.ext_temp = DS18X20(ow)
-
-        # Init flash detector diode
-        # # https://docs.pycom.io/firmwareapi/pycom/machine/pin.html
-        self.flash_pin = Pin('P4', mode=Pin.IN, pull=Pin.PULL_UP)
-        self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
+    def init_storage(self):
+        with TaskContext("Init SD card"):
+            # # https://docs.pycom.io/firmwareapi/pycom/machine/spi.html
+            self.spi = SPI(0, mode=SPI.MASTER)
+            SD_CS = Pin('P12')
+            self.sd = sdcard.SDCard(self.spi, SD_CS)
+            os.mount(self.sd, '/sd2')
+        print("\tContents:", os.listdir('/sd2'))
 
     def on_flash_pin(self, arg):
         print("pin change")
@@ -75,6 +92,7 @@ class Co2Unit(object):
                 }
 
 co2unit = Co2Unit()
+co2unit.init_storage()
 
 while True:
 
