@@ -25,7 +25,23 @@ class TaskContext(object):
         else:
             print("Fail")
 
+def mkdirs(pathparts):
+    created = []
+    for i in range(2, len(pathparts)+1):
+        curpath = "/".join(pathparts[0:i])
+        try:
+            os.mkdir(curpath)
+            created += [curpath]
+        except OSError as e:
+            if "file exists" in str(e): pass
+            else: raise e
+    return created
+
 class Co2Unit(object):
+
+    def __init__(self):
+        self.sd_root = "/sd2"
+        self.obs_path_parts = [self.sd_root, "data", "co2temp"]
 
     def init_rtc(self):
         with TaskContext("Init RTC"):
@@ -51,8 +67,13 @@ class Co2Unit(object):
             self.spi = SPI(0, mode=SPI.MASTER)
             SD_CS = Pin('P12')
             self.sd = sdcard.SDCard(self.spi, SD_CS)
-            os.mount(self.sd, '/sd2')
-        print("\tContents:", os.listdir('/sd2'))
+            os.mount(self.sd, self.sd_root)
+        print("\tContents:", os.listdir(self.sd_root))
+
+        with TaskContext("Ensure observation dir exists"):
+            created_dirs = mkdirs(self.obs_path_parts)
+        for d in created_dirs:
+            print("Created", d)
 
     def on_flash_pin(self, arg):
         print("pin change")
@@ -94,19 +115,10 @@ class Co2Unit(object):
         row["co2"] = reading["co2"]
         row["ext_t"] = reading["ext_t"]
 
-        pathparts = ["/sd2", "data", "co2temp"]
+        pathparts = [self.sd_root, "data", "co2temp"]
         filename = "{:04}-{:02}.tsv".format(YY, MM)
 
-        for i in range(2, len(pathparts)+1):
-            curpath = "/".join(pathparts[0:i])
-            try:
-                os.mkdir(curpath)
-                print("Created directory", path)
-            except OSError as e:
-                if "file exists" in str(e): pass
-                else: raise e
-
-        path = "/".join(pathparts + [filename])
+        path = "/".join(self.obs_path_parts + [filename])
         with TaskContext("Recording reading to "+path):
             with open(path, "at") as f:
                 row = "{date}\t{time}\t{co2}\t{ext_t}\n".format(**row)
