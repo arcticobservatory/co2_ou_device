@@ -68,7 +68,7 @@ class Co2Unit(object):
             # Init external RTC
             # # https://docs.pycom.io/firmwareapi/pycom/machine/i2c.html
             self.ertc = DS3231(0, pins=('P22','P21'))
-        print("\tTime:", self.ertc.get_time())
+        print("Time:", self.ertc.get_time())
 
     def init_sensors(self):
         with TaskContext("Init external temperature sensor"):
@@ -88,7 +88,7 @@ class Co2Unit(object):
             SD_CS = Pin('P12')
             self.sd = sdcard.SDCard(self.spi, SD_CS)
             os.mount(self.sd, self.sd_root)
-        print("\tContents:", os.listdir(self.sd_root))
+        print("Root dir:", os.listdir(self.sd_root))
 
         with TaskContext("Ensure observation dir exists"):
             created_dirs = mkdirs(self.obs_dir)
