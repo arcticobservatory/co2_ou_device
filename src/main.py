@@ -12,9 +12,13 @@ from machine import Pin
 from machine import SD
 from ds3231 import DS3231
 
-def isotime(mktime_tuple):
-    (YY, MM, DD, hh, mm, ss, wday, yday) = mktime_tuple
-    return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(YY, MM, DD, hh, mm, ss)
+def localdate(mktime_tuple):
+    (YY, MM, DD, _, _, _, _, _) = mktime_tuple
+    return "{:04d}-{:02d}-{:02d}".format(YY, MM, DD)
+
+def localtime(mktime_tuple):
+    (_, _, _, hh, mm, ss, _, _) = mktime_tuple
+    return "{:02d}:{:02d}:{:02d}".format(hh, mm, ss)
 
 class TaskContext(object):
     def __init__(self, desc):
@@ -80,14 +84,16 @@ class Co2Unit(object):
         flash_reading = self.flash_pin()
 
         # Read RTC
-        wtime_tuple = self.ertc.get_time(True)
-        wtime_ts = time.mktime(wtime_tuple)
-        wtime_iso = isotime(wtime_tuple)
+        rtime_tuple = self.ertc.get_time(True)
+        rtime_ts = time.mktime(rtime_tuple)
+        rdate = localdate(rtime_tuple)
+        rtime = localtime(rtime_tuple)
 
         return {
-                "wtime_tuple": wtime_tuple,
-                "wtime_ts": wtime_ts,
-                "wtime_iso": wtime_iso,
+                "rtime_tuple": rtime_tuple,
+                "rtime_ts": rtime_ts,
+                "rdate": rdate,
+                "rtime": rtime,
                 "co2": None,
                 "ext_t": ext_t_reading,
                 "ext_t_ms": ext_t_ticks,
@@ -95,26 +101,24 @@ class Co2Unit(object):
                 }
 
     def record_reading(self, reading):
-        filename = reading["wtime_iso"][0:7] + ".tsv"
+        filename = reading["rdate"][0:7] + ".tsv"
         pathparts = ["/sd2", "data", "co2temp"]
 
         for i in range(2, len(pathparts)+1):
             curpath = "/".join(pathparts[0:i])
-            print("{:39} ".format("Directory " + curpath), end="")
             try:
                 os.mkdir(curpath)
-                print("Created")
+                print("Created directory", path)
             except OSError as e:
-                if "file exists" in str(e): print("Exists")
-                else: print("Fail"); raise e
+                if "file exists" in str(e): pass
+                else: raise e
 
         path = "/".join(pathparts + [filename])
         with TaskContext("Recording reading to "+path):
             with open(path, "at") as f:
-                row = "{wtime_iso}\t{co2}\t{ext_t}\n".format(**reading)
+                row = "{rdate}\t{rtime}\t{co2}\t{ext_t}\n".format(**reading)
                 f.write(row)
         print(row, end="")
-
 
 co2unit = Co2Unit()
 co2unit.init_rtc()
@@ -123,7 +127,8 @@ co2unit.init_storage()
 
 while True:
 
+    print()
     reading = co2unit.take_reading()
-    co2unit.record_reading(reading)
     print(reading)
+    co2unit.record_reading(reading)
     time.sleep(5)
