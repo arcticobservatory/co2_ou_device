@@ -204,19 +204,19 @@ class SDCard:
         self.cs(0)
 
         # send: start of block, data, checksum
-        self.spi.read(1, token)
+        self.spi.read(1, write=token)
         self.spi.write(buf)
         self.spi.write(b'\xff')
         self.spi.write(b'\xff')
 
         # check the response
-        if (self.spi.read(1, 0xff)[0] & 0x1f) != 0x05:
+        if (self.spi.read(1, write=0xff)[0] & 0x1f) != 0x05:
             self.cs(1)
             self.spi.write(b'\xff')
             return
 
         # wait for write to finish
-        while self.spi.read(1, 0xff)[0] == 0:
+        while self.spi.read(1, write=0xff)[0] == 0:
             pass
 
         self.cs(1)
@@ -224,10 +224,10 @@ class SDCard:
 
     def write_token(self, token):
         self.cs(0)
-        self.spi.read(1, token)
+        self.spi.read(1, write=token)
         self.spi.write(b'\xff')
         # wait for write to finish
-        while self.spi.read(1, 0xff)[0] == 0x00:
+        while self.spi.read(1, write=0xff)[0] == 0x00:
             pass
 
         self.cs(1)

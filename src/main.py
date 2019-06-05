@@ -21,7 +21,7 @@ class TaskContext(object):
         self.desc = desc
 
     def __enter__(self):
-        print("{:40}".format(self.desc), end="")
+        print("{:39} ".format(self.desc), end="")
 
     def __exit__(self, exc_type, exc_value, traceback):
         if not exc_type:
@@ -88,14 +88,32 @@ class Co2Unit(object):
                 "wtime_tuple": wtime_tuple,
                 "wtime_ts": wtime_ts,
                 "wtime_iso": wtime_iso,
+                "co2": None,
                 "ext_t": ext_t_reading,
                 "ext_t_ms": ext_t_ticks,
                 "flash": flash_reading,
                 }
 
     def record_reading(self, reading):
-        #path = "/".join(["/sd2", "data", "co2temp", ])
-        pass
+        filename = reading["wtime_iso"][0:7] + ".tsv"
+        pathparts = ["/sd2", "data", "co2temp"]
+
+        for i in range(2, len(pathparts)+1):
+            curpath = "/".join(pathparts[0:i])
+            print("{:39} ".format("Directory " + curpath), end="")
+            try:
+                os.mkdir(curpath)
+                print("Created")
+            except OSError as e:
+                if "file exists" in str(e): print("Exists")
+                else: print("Fail"); raise e
+
+        path = "/".join(pathparts + [filename])
+        with TaskContext("Recording reading to "+path):
+            with open(path, "at") as f:
+                row = "{wtime_iso}\t{co2}\t{ext_t}\n".format(**reading)
+                f.write(row)
+        print(row, end="")
 
 
 co2unit = Co2Unit()
