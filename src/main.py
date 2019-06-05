@@ -25,8 +25,13 @@ class TaskContext(object):
         else:
             print("Fail")
 
-def mkdirs(pathparts):
+def mkdirs(path):
+    if path.startswith("/"):
+        path = path[1:0]
+    pathparts = path.split("/")
+
     created = []
+
     for i in range(2, len(pathparts)+1):
         curpath = "/".join(pathparts[0:i])
         try:
@@ -35,13 +40,14 @@ def mkdirs(pathparts):
         except OSError as e:
             if "file exists" in str(e): pass
             else: raise e
+
     return created
 
 class Co2Unit(object):
 
     def __init__(self):
         self.sd_root = "/sd2"
-        self.obs_path_parts = [self.sd_root, "data", "co2temp"]
+        self.obs_dir = "/sd2/data/co2temp"
 
     def init_rtc(self):
         with TaskContext("Init RTC"):
@@ -71,7 +77,7 @@ class Co2Unit(object):
         print("\tContents:", os.listdir(self.sd_root))
 
         with TaskContext("Ensure observation dir exists"):
-            created_dirs = mkdirs(self.obs_path_parts)
+            created_dirs = mkdirs(self.obs_dir)
         for d in created_dirs:
             print("Created", d)
 
@@ -114,14 +120,14 @@ class Co2Unit(object):
         row["time"] = "{:02}:{:02}:{:02}".format(hh,mm,ss)
         row["co2"] = reading["co2"]
         row["ext_t"] = reading["ext_t"]
+        row = "{date}\t{time}\t{co2}\t{ext_t}\n".format(**row)
 
         pathparts = [self.sd_root, "data", "co2temp"]
         filename = "{:04}-{:02}.tsv".format(YY, MM)
 
-        path = "/".join(self.obs_path_parts + [filename])
-        with TaskContext("Recording reading to "+path):
+        path = self.obs_dir + "/" + filename
+        with TaskContext("Recording reading to " + path):
             with open(path, "at") as f:
-                row = "{date}\t{time}\t{co2}\t{ext_t}\n".format(**row)
                 f.write(row)
         print(row, end="")
 
