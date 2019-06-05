@@ -12,6 +12,8 @@ from machine import Pin
 from machine import SD
 from ds3231 import DS3231
 
+import fileutil
+
 class TaskContext(object):
     def __init__(self, desc):
         self.desc = desc
@@ -24,38 +26,6 @@ class TaskContext(object):
             print("OK")
         else:
             print("Fail")
-
-def mkdirs(path):
-    pathparts = path.split("/")
-
-    created = []
-
-    for i in range(3, len(pathparts)+1):
-        curpath = "/".join(pathparts[0:i])
-        try:
-            os.mkdir(curpath)
-            created += [curpath]
-        except OSError as e:
-            if "file exists" in str(e): pass
-            else: raise e
-
-    return created
-
-def rm_recursive(path):
-    try:
-        # Try as normal file
-        os.remove(path)
-        print("Removed file", path)
-    except OSError:
-        # Try as directory
-        try:
-            contents = os.listdir(path)
-            for c in contents:
-                rm_recursive(path+"/"+c)
-            os.rmdir(path)
-            print("Removed dir ", path)
-        except OSError as e:
-            print(e)
 
 class Co2Unit(object):
 
@@ -91,7 +61,7 @@ class Co2Unit(object):
         print("Root dir:", os.listdir(self.sd_root))
 
         with TaskContext("Ensure observation dir exists"):
-            created_dirs = mkdirs(self.obs_dir)
+            created_dirs = fileutil.mkdirs(self.obs_dir)
         for d in created_dirs:
             print("Created", d)
 
