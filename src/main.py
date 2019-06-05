@@ -12,14 +12,6 @@ from machine import Pin
 from machine import SD
 from ds3231 import DS3231
 
-def localdate(mktime_tuple):
-    (YY, MM, DD, _, _, _, _, _) = mktime_tuple
-    return "{:04d}-{:02d}-{:02d}".format(YY, MM, DD)
-
-def localtime(mktime_tuple):
-    (_, _, _, hh, mm, ss, _, _) = mktime_tuple
-    return "{:02d}:{:02d}:{:02d}".format(hh, mm, ss)
-
 class TaskContext(object):
     def __init__(self, desc):
         self.desc = desc
@@ -84,15 +76,9 @@ class Co2Unit(object):
         flash_reading = self.flash_pin()
 
         # Read RTC
-        rtime_tuple = self.ertc.get_time(True)
-        rtime_ts = time.mktime(rtime_tuple)
-        rdate = localdate(rtime_tuple)
-        rtime = localtime(rtime_tuple)
+        rtime = self.ertc.get_time(True)
 
         return {
-                "rtime_tuple": rtime_tuple,
-                "rtime_ts": rtime_ts,
-                "rdate": rdate,
                 "rtime": rtime,
                 "co2": None,
                 "ext_t": ext_t_reading,
@@ -101,8 +87,15 @@ class Co2Unit(object):
                 }
 
     def record_reading(self, reading):
-        filename = reading["rdate"][0:7] + ".tsv"
+        (YY, MM, DD, hh, mm, ss, _, _) = reading["rtime"]
+        row = {}
+        row["date"] = "{:04}-{:02}-{:02}".format(YY,MM,DD)
+        row["time"] = "{:02}:{:02}:{:02}".format(hh,mm,ss)
+        row["co2"] = reading["co2"]
+        row["ext_t"] = reading["ext_t"]
+
         pathparts = ["/sd2", "data", "co2temp"]
+        filename = "{:04}-{:02}.tsv".format(YY, MM)
 
         for i in range(2, len(pathparts)+1):
             curpath = "/".join(pathparts[0:i])
@@ -116,7 +109,7 @@ class Co2Unit(object):
         path = "/".join(pathparts + [filename])
         with TaskContext("Recording reading to "+path):
             with open(path, "at") as f:
-                row = "{rdate}\t{rtime}\t{co2}\t{ext_t}\n".format(**reading)
+                row = "{date}\t{time}\t{co2}\t{ext_t}\n".format(**row)
                 f.write(row)
         print(row, end="")
 
