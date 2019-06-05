@@ -26,13 +26,11 @@ class TaskContext(object):
             print("Fail")
 
 def mkdirs(path):
-    if path.startswith("/"):
-        path = path[1:0]
     pathparts = path.split("/")
 
     created = []
 
-    for i in range(2, len(pathparts)+1):
+    for i in range(3, len(pathparts)+1):
         curpath = "/".join(pathparts[0:i])
         try:
             os.mkdir(curpath)
@@ -42,6 +40,22 @@ def mkdirs(path):
             else: raise e
 
     return created
+
+def rm_recursive(path):
+    try:
+        # Try as normal file
+        os.remove(path)
+        print("Removed file", path)
+    except OSError:
+        # Try as directory
+        try:
+            contents = os.listdir(path)
+            for c in contents:
+                rm_recursive(path+"/"+c)
+            os.rmdir(path)
+            print("Removed dir ", path)
+        except OSError as e:
+            print(e)
 
 class Co2Unit(object):
 
