@@ -110,10 +110,17 @@ class Co2Unit(object):
         filename = "{:04}-{:02}.tsv".format(YY, MM)
 
         path = self.obs_dir + "/" + filename
-        with TaskContext("Recording reading to " + path):
+        with TaskContext("Recording to " + path):
             with open(path, "at") as f:
                 f.write(row)
         print(row, end="")
+
+    def read_and_record(self):
+        print()
+        with TaskContext("Reading sensors"):
+            reading = self.take_reading()
+        print(reading)
+        self.record_reading(reading)
 
 co2unit = Co2Unit()
 co2unit.init_rtc()
@@ -122,8 +129,5 @@ co2unit.init_storage()
 
 while True:
 
-    print()
-    reading = co2unit.take_reading()
-    print(reading)
-    co2unit.record_reading(reading)
+    co2unit.read_and_record()
     time.sleep(5)
