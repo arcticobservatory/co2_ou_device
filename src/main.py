@@ -12,6 +12,10 @@ from machine import Pin
 from machine import SD
 from ds3231 import DS3231
 
+def isotime(mktime_tuple):
+    (YY, MM, DD, hh, mm, ss, wday, yday) = mktime_tuple
+    return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(YY, MM, DD, hh, mm, ss)
+
 class TaskContext(object):
     def __init__(self, desc):
         self.desc = desc
@@ -26,10 +30,6 @@ class TaskContext(object):
             print("Fail")
 
 class Co2Unit(object):
-
-    def __init__(self):
-        self.init_rtc()
-        self.init_sensors()
 
     def init_rtc(self):
         with TaskContext("Init RTC"):
@@ -80,22 +80,32 @@ class Co2Unit(object):
         flash_reading = self.flash_pin()
 
         # Read RTC
-        wtime = self.ertc.get_time(True)
-        wtime_raw = time.mktime(wtime)
+        wtime_tuple = self.ertc.get_time(True)
+        wtime_ts = time.mktime(wtime_tuple)
+        wtime_iso = isotime(wtime_tuple)
 
         return {
-                "wtime": wtime,
-                "wtime_raw": wtime_raw,
+                "wtime_tuple": wtime_tuple,
+                "wtime_ts": wtime_ts,
+                "wtime_iso": wtime_iso,
                 "ext_t": ext_t_reading,
                 "ext_t_ms": ext_t_ticks,
                 "flash": flash_reading,
                 }
 
+    def record_reading(self, reading):
+        #path = "/".join(["/sd2", "data", "co2temp", ])
+        pass
+
+
 co2unit = Co2Unit()
+co2unit.init_rtc()
+co2unit.init_sensors()
 co2unit.init_storage()
 
 while True:
 
     reading = co2unit.take_reading()
+    co2unit.record_reading(reading)
     print(reading)
     time.sleep(5)
