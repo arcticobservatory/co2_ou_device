@@ -7,3 +7,6 @@
 [submodule "thirdparty/upython-aq-monitor"]
 	path = thirdparty/upython-aq-monitor
 	url = https://github.com/ayoy/upython-aq-monitor.git
+[submodule "thirdparty/micropython-lib"]
+	path = thirdparty/micropython-lib
+	url = https://github.com/micropython/micropython-lib.git
