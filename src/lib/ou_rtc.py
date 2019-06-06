@@ -11,7 +11,7 @@ def time_reasonable(time_tuple):
 class OuRtc(object):
 
     def __init__(self):
-        _logger.info("Initializing RTC")
+        _logger.debug("Initializing RTC")
         self.irtc = RTC()
         self.ertc = DS3231(0, pins=('P22','P21'))
 

@@ -1,5 +1,9 @@
 import os
 
+import logging
+
+_logger = logging.getLogger("fileutil")
+
 def mkdirs(path):
     pathparts = path.split("/")
 
@@ -10,8 +14,10 @@ def mkdirs(path):
         try:
             os.mkdir(curpath)
             created += [curpath]
+            _logger.info("Created %s", curpath)
         except OSError as e:
-            if "file exists" in str(e): pass
+            if "file exists" in str(e):
+                _logger.debug("Exists  %s", curpath)
             else: raise e
 
     return created
@@ -20,14 +26,11 @@ def rm_recursive(path):
     try:
         # Try as normal file
         os.remove(path)
-        print("Removed file", path)
+        _logger.info("Removed file %s", path)
     except OSError:
         # Try as directory
-        try:
-            contents = os.listdir(path)
-            for c in contents:
-                rm_recursive(path+"/"+c)
-            os.rmdir(path)
-            print("Removed dir ", path)
-        except OSError as e:
-            print(e)
+        contents = os.listdir(path)
+        for c in contents:
+            rm_recursive("{}/{}".format(path,c))
+        os.rmdir(path)
+        _logger.info("Removed dir  %s", path)
