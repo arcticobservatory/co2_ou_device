@@ -1,17 +1,17 @@
-import time
 import os
-import sdcard
-import machine
+import time
 
 from machine import I2C
-from machine import SPI
+from machine import Pin
 from onewire import DS18X20
 from onewire import OneWire
-from machine import Pin
+import machine
 
-from machine import SD
 from ds3231 import DS3231
+import logging
+import sdcard
 
+from ou_storage import OuStorage
 import fileutil
 
 class TaskContext(object):
@@ -28,10 +28,6 @@ class TaskContext(object):
             print("Fail")
 
 class Co2Unit(object):
-
-    def __init__(self):
-        self.sd_root = "/sd2"
-        self.obs_dir = "/sd2/data/co2temp"
 
     def init_rtc(self):
         with TaskContext("Init RTC"):
@@ -52,19 +48,7 @@ class Co2Unit(object):
             self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
     def init_storage(self):
-        with TaskContext("Init SD card"):
-            # # https://docs.pycom.io/firmwareapi/pycom/machine/spi.html
-            self.spi = SPI(0, mode=SPI.MASTER)
-            SD_CS = Pin('P12')
-            self.sd = sdcard.SDCard(self.spi, SD_CS)
-            os.mount(self.sd, self.sd_root)
-        print("Root dir:", os.listdir(self.sd_root))
-
-        with TaskContext("Ensure observation dir exists"):
-            created_dirs = fileutil.mkdirs(self.obs_dir)
-        for d in created_dirs:
-            print("Created", d)
-        print("Obs dir:", os.listdir(self.obs_dir))
+        self.ou_storage = OuStorage()
 
     def on_flash_pin(self, arg):
         print("pin change")
@@ -99,22 +83,7 @@ class Co2Unit(object):
                 }
 
     def record_reading(self, reading):
-        (YY, MM, DD, hh, mm, ss, _, _) = reading["rtime"]
-        row = {}
-        row["date"] = "{:04}-{:02}-{:02}".format(YY,MM,DD)
-        row["time"] = "{:02}:{:02}:{:02}".format(hh,mm,ss)
-        row["co2"] = reading["co2"]
-        row["ext_t"] = reading["ext_t"]
-        row = "{date}\t{time}\t{co2}\t{ext_t}\n".format(**row)
-
-        pathparts = [self.sd_root, "data", "co2temp"]
-        filename = "{:04}-{:02}.tsv".format(YY, MM)
-
-        path = self.obs_dir + "/" + filename
-        with TaskContext("Recording to " + path):
-            with open(path, "at") as f:
-                f.write(row)
-        print(row, end="")
+        self.ou_storage.record_reading(reading)
 
     def read_and_record(self):
         print()
@@ -123,12 +92,19 @@ class Co2Unit(object):
         print(reading)
         self.record_reading(reading)
 
+logging.basicConfig(level=logging.DEBUG)
+
 co2unit = Co2Unit()
 co2unit.init_rtc()
 co2unit.init_sensors()
-co2unit.init_storage()
+
+ou_storage = OuStorage()
 
 while True:
 
-    co2unit.read_and_record()
+    print()
+    with TaskContext("Reading sensors"):
+        reading = co2unit.take_reading()
+    print(reading)
+    ou_storage.record_reading(reading)
     time.sleep(5)
