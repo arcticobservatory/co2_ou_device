@@ -64,6 +64,7 @@ class Co2Unit(object):
             created_dirs = fileutil.mkdirs(self.obs_dir)
         for d in created_dirs:
             print("Created", d)
+        print("Obs dir:", os.listdir(self.obs_dir))
 
     def on_flash_pin(self, arg):
         print("pin change")
