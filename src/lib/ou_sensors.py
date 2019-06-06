@@ -5,6 +5,8 @@ from onewire import DS18X20
 from machine import Pin
 import logging
 
+import polling
+
 _logger = logging.getLogger("ou_sensors")
 
 class OuSensors(object):
@@ -29,22 +31,18 @@ class OuSensors(object):
 
         # Wait for temperature reading
         # Temperature reading seems to take around 650 ms (datasheet says under 750 ms)
-        while True:
-            ext_t_reading = self.ext_temp.read_temp_async()
-            if ext_t_reading != None:
-                ext_t_ticks = time.ticks_diff(ext_t_start_ticks, time.ticks_ms())
-                _logger.debug("Temperature reading %s C; completed in %d ms",
-                            ext_t_reading, ext_t_ticks)
-                break
-            time.sleep_ms(1)
+        reading = polling.poll_sleep_loop({
+                "ext_t": self.ext_temp.read_temp_async
+                },
+                ticks_unit="ms", timeout_ticks=2000, sleep_ticks=1)
 
         # Read flash sensor
         flash_reading = self.flash_pin()
 
         reading = {
                 "co2": None,
-                "ext_t": ext_t_reading,
-                "ext_t_ms": ext_t_ticks,
+                "ext_t": reading["ext_t"][0],
+                "ext_t_ms": reading["ext_t"][1],
                 "flash": flash_reading,
                 }
         return reading
