@@ -26,4 +26,11 @@ def simple_read_loop():
         time.sleep(5)
         logging.debug("Woke up")
 
-simple_read_loop()
+#simple_read_loop()
+
+#from ou_comm import OuComm
+#ou_comm = OuComm()
+#ou_comm.run()
+
+from ou_comm import StartIot
+start = StartIot()
