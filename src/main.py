@@ -19,31 +19,37 @@ def simple_read_loop():
 
         reading = sensors.take_reading()
         (path, row) = storage.record_reading(reading)
-        logging.info("%s: %s\t| raw reading: %s", path, row, reading)
-
-        logging.debug("Going into light sleep")
         for _ in range(1, 30): time.sleep(1)
 
 #simple_read_loop()
 
-def connect_set_time_and_run():
-
-    rtc = ou_rtc.OuRtc()
-    rtc.compare_and_adjust()
+def simple_autonomous():
 
     try:
-        comm = ou_comm.OuComm()
-        comm.lte_connect()
+        storage = ou_storage.OuStorage()
 
-        rtc.set_from_ntp()
+        rtc = ou_rtc.OuRtc()
+        rtc.compare_and_adjust()
+        if not ou_rtc.time_reasonable():
 
-        #comm.send_test_msg()
-        #comm.lte_disconnect()
+            comm = ou_comm.OuComm()
+            comm.lte_connect()
 
-        simple_read_loop()
+            rtc.set_from_ntp()
+
+            #comm.send_test_msg()
+            comm.lte_disconnect()
+
+        sensors = ou_sensors.OuSensors()
+
+        while True:
+
+            reading = sensors.take_reading()
+            (path, row) = storage.record_reading(reading)
+            for _ in range(1, 30): time.sleep(1)
 
     except Exception as e:
-        raise
+        #raise
         logging.info("Restarting soon after unexpected error. %s: %s",
                 type(e).__name__, e)
         for _ in range(1, 10): time.sleep(1)
@@ -51,7 +57,7 @@ def connect_set_time_and_run():
         import machine
         machine.reset()
 
-connect_set_time_and_run()
+simple_autonomous()
 
 # TO CONFIGURE
 #

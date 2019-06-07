@@ -25,14 +25,15 @@ class OuComm(object):
         self.lte = None
 
     def lte_connect(self):
+        _logger.info("Attempting to connect LTE")
+        timer = stopwatch.StopWatch(logger=_logger)
+
         _logger.debug("pycom.lte_modem_en_on_boot() == %s",
                 pycom.lte_modem_en_on_boot())
 
-        timer = stopwatch.StopWatch(logger=_logger)
-
         timer.start_ms("LTE constructor")
         try:
-            self.lte = flaky.retry_call( LTE, wait_ms=10)
+            self.lte = flaky.retry_call( LTE, wait_ms=500)
             lte = self.lte
         except OSError as e:
             raise InitModemError(e)
@@ -72,6 +73,7 @@ class OuComm(object):
         timer.stop()
 
     def send_test_msg(self):
+        timer = stopwatch.StopWatch(logger=_logger)
 
         _logger.debug("Opening socket")
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

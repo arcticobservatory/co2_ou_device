@@ -60,4 +60,5 @@ class OuStorage(object):
             f.write(row)
             f.write("\n")
         _logger.debug("Wrote   data to %s", path)
+        _logger.info("%s: %s\t| raw reading: %s", path, row, reading)
         return (path, row)

@@ -58,7 +58,7 @@ class OuRtc(object):
             _logger.info("External RTC reset; setting from internal %s", itime)
             self.set_external_from_internal()
         else:
-            _logger.warning("Both RTCs reset; no reliable time source")
+            _logger.warning("Both RTCs reset; no reliable time source; %s", itime)
 
     def set_internal(self, time_tuple):
         self.irtc.init(time_tuple)
