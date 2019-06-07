@@ -8,11 +8,11 @@ from ou_storage import OuStorage
 
 logging.basicConfig(level=logging.DEBUG)
 
-ou_rtc = OuRtc()
-ou_sensors = OuSensors()
-ou_storage = OuStorage()
-
 def simple_read_loop():
+
+    ou_rtc = OuRtc()
+    ou_sensors = OuSensors()
+    ou_storage = OuStorage()
 
     while True:
 

@@ -1,35 +1,42 @@
 # Adapted from code Sergiusz gave me
 
-# Note: this only seems to work if lte.lte_en_on_boot() is True when you power on
+# Note: this only seems to work if pycom.lte_modem_en_on_boot() is True when you power on
 
 import socket
 import ssl
 import time
 
 from network import LTE
+import pycom
 
 import logging
 
 _logger = logging.getLogger("ou_comm")
 
 def test_connect():
+    _logger.debug("pycom.lte_modem_en_on_boot() == %s",
+            pycom.lte_modem_en_on_boot())
+
     _logger.debug("LTE constructor")
     lte = LTE()
+
+    _logger.debug("lte.init()")
+    lte.init()
 
     _logger.debug("lte.attach()")
     lte.attach()
 
-    _logger.debug("Waiting for lte.isattached()")
+    _logger.info("Waiting for LTE attach")
     while not lte.isattached():
         time.sleep(1)
-    _logger.debug("Attached")
+    _logger.info("LTE attached")
 
     _logger.debug("lte.connect()")
     lte.connect()
-    _logger.debug("Waiting for lte.isconnected()")
+    _logger.info("Waiting for LTE connection")
     while not lte.isconnected():
         time.sleep(0.25)
-    _logger.debug('Connected!')
+    _logger.info('LTE connected')
 
     _logger.debug("Opening socket")
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
