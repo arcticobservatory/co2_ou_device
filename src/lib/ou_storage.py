@@ -11,6 +11,9 @@ import fileutil
 
 _logger = logging.getLogger("ou_storage")
 
+class OuStorageError(Exception): pass
+class SdInitError(OuStorageError): pass
+
 class OuStorage(object):
 
     def __init__(self):

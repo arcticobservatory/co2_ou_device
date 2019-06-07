@@ -16,6 +16,7 @@ import stopwatch
 _logger = logging.getLogger("ou_comm")
 
 class OuCommError(Exception): pass
+class InitModemError(OuCommError): pass
 
 class OuComm(object):
 
@@ -30,8 +31,12 @@ class OuComm(object):
         timer = self.timer
 
         timer.start_ms("LTE constructor")
-        self.lte = LTE()
-        lte = self.lte
+        try:
+            self.lte = LTE()
+            lte = self.lte
+        except OSError as e:
+            _logger.error("Could not initialize LTE. %s: %s", type(e).__name__, e)
+            raise InitModemError(e)
         timer.stop()
 
         timer.start_ms("lte.attach()")
