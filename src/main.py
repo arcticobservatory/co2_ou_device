@@ -32,5 +32,5 @@ def simple_read_loop():
 #ou_comm = OuComm()
 #ou_comm.run()
 
-from ou_comm import StartIot
-start = StartIot()
+import ou_comm
+ou_comm.test_connect()
