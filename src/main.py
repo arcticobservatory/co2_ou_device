@@ -2,22 +2,23 @@ import time
 
 import logging
 
-from ou_rtc import OuRtc
-from ou_sensors import OuSensors
-from ou_storage import OuStorage, SdMountError
+import ou_comm
+import ou_rtc
+import ou_sensors
+import ou_storage
 
 logging.basicConfig(level=logging.INFO)
 
 def simple_read_loop():
 
-    ou_rtc = OuRtc()
-    ou_sensors = OuSensors()
-    ou_storage = OuStorage()
+    rtc = ou_rtc.OuRtc()
+    sensors = ou_sensors.OuSensors()
+    storage = ou_storage.OuStorage()
 
     while True:
 
-        reading = ou_sensors.take_reading()
-        (path, row) = ou_storage.record_reading(reading)
+        reading = sensors.take_reading()
+        (path, row) = storage.record_reading(reading)
         logging.info("%s: %s\t| raw reading: %s", path, row, reading)
 
         logging.debug("Going into light sleep")
@@ -25,25 +26,24 @@ def simple_read_loop():
 
 #simple_read_loop()
 
-from ou_comm import OuComm, InitModemError
-
 def connect_set_time_and_run():
 
-    ou_rtc = OuRtc()
-    ou_rtc.compare_and_adjust()
+    rtc = ou_rtc.OuRtc()
+    rtc.compare_and_adjust()
 
     try:
-        ou_comm = OuComm()
-        ou_comm.lte_connect()
+        comm = ou_comm.OuComm()
+        comm.lte_connect()
 
-        ou_rtc.set_from_ntp()
+        rtc.set_from_ntp()
 
-        #ou_comm.send_test_msg()
-        #ou_comm.lte_disconnect()
+        #comm.send_test_msg()
+        #comm.lte_disconnect()
 
         simple_read_loop()
 
     except Exception as e:
+        raise
         logging.info("Restarting soon after unexpected error. %s: %s",
                 type(e).__name__, e)
         for _ in range(1, 10): time.sleep(1)
