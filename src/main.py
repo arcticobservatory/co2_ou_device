@@ -4,7 +4,7 @@ import logging
 
 from ou_rtc import OuRtc
 from ou_sensors import OuSensors
-from ou_storage import OuStorage, SdInitError
+from ou_storage import OuStorage, SdMountError
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -29,7 +29,7 @@ def simple_read_loop():
 
 from ou_comm import OuComm, InitModemError
 
-def connect_and_set_with_ntp():
+def connect_set_time_and_run():
 
     ou_rtc = OuRtc()
     ou_rtc.compare_and_adjust()
@@ -45,15 +45,15 @@ def connect_and_set_with_ntp():
 
         simple_read_loop()
 
-    except (InitModemError, TimeoutError) as e:
-        logging.info("Restarting soon after unrecoverable error. %s: %s",
+    except Exception as e:
+        logging.info("Restarting soon after unexpected error. %s: %s",
                 type(e).__name__, e)
         for _ in range(1, 10): time.sleep(1)
         logging.info("Restarting")
         import machine
         machine.reset()
 
-connect_and_set_with_ntp()
+connect_set_time_and_run()
 
 # TO CONFIGURE
 #

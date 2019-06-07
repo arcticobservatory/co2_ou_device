@@ -8,11 +8,12 @@ import logging
 import sdcard
 
 import fileutil
+import flaky
 
 _logger = logging.getLogger("ou_storage")
 
 class OuStorageError(Exception): pass
-class SdInitError(OuStorageError): pass
+class SdMountError(OuStorageError): pass
 
 class OuStorage(object):
 
@@ -24,7 +25,12 @@ class OuStorage(object):
         self.spi = SPI(0, mode=SPI.MASTER)
         SD_CS = Pin('P12')
         self.sd = sdcard.SDCard(self.spi, SD_CS)
-        os.mount(self.sd, self.sd_root)
+
+        try:
+            flaky.retry_call( os.mount, self.sd, self.sd_root )
+        except OSError as e:
+            raise SdMountError(e)
+
         _logger.debug("SD card mounted at %s", self.sd_root)
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug("ls %s: %s", self.sd_root, os.listdir(self.sd_root))

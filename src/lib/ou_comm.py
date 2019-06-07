@@ -11,6 +11,7 @@ import pycom
 
 import logging
 
+import flaky
 import stopwatch
 
 _logger = logging.getLogger("ou_comm")
@@ -32,10 +33,9 @@ class OuComm(object):
 
         timer.start_ms("LTE constructor")
         try:
-            self.lte = LTE()
+            self.lte = flaky.retry_call( LTE, wait_ms=10)
             lte = self.lte
         except OSError as e:
-            _logger.error("Could not initialize LTE. %s: %s", type(e).__name__, e)
             raise InitModemError(e)
         timer.stop()
 
