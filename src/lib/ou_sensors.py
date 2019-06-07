@@ -5,7 +5,7 @@ from onewire import DS18X20
 from machine import Pin
 import logging
 
-import polling
+import stopwatch
 
 _logger = logging.getLogger("ou_sensors")
 
@@ -23,7 +23,7 @@ class OuSensors(object):
         self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
     def take_reading(self):
-        timer = polling.StopWatch(logger=_logger)
+        timer = stopwatch.StopWatch(logger=_logger)
         timer.start_ms("Sensor reading", logstart=True)
 
         # Start temperature reading

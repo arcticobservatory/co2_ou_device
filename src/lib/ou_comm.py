@@ -11,7 +11,7 @@ import pycom
 
 import logging
 
-import polling
+import stopwatch
 
 _logger = logging.getLogger("ou_comm")
 
@@ -19,7 +19,7 @@ def test_connect():
     _logger.debug("pycom.lte_modem_en_on_boot() == %s",
             pycom.lte_modem_en_on_boot())
 
-    timer = polling.StopWatch(logger=_logger)
+    timer = stopwatch.StopWatch(logger=_logger)
 
     timer.start_ms("LTE constructor")
     lte = LTE()
