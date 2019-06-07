@@ -34,3 +34,5 @@ def simple_read_loop():
 
 import ou_comm
 ou_comm.test_connect()
+
+simple_read_loop()

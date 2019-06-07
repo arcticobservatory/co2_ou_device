@@ -23,26 +23,26 @@ class OuSensors(object):
         self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
     def take_reading(self):
+        timer = polling.StopWatch(logger=_logger)
+        timer.start_ms("Sensor reading", logstart=True)
 
-        _logger.debug("Starting temperature reading")
         # Start temperature reading
         self.ext_temp.start_conversion()
-        ext_t_start_ticks = time.ticks_ms()
 
         # Wait for temperature reading
         # Temperature reading seems to take around 650 ms (datasheet says under 750 ms)
-        reading = polling.poll_sleep_loop({
-                "ext_t": self.ext_temp.read_temp_async
-                },
-                ticks_unit="ms", timeout_ticks=2000, sleep_ticks=1)
+
+        ext_t, ext_t_ms = timer.wait_for(
+                self.ext_temp.read_temp_async,
+                timeout=2000, sleep=1);
 
         # Read flash sensor
         flash_reading = self.flash_pin()
 
         reading = {
                 "co2": None,
-                "ext_t": reading["ext_t"][0],
-                "ext_t_ms": reading["ext_t"][1],
+                "ext_t": ext_t,
+                "ext_t_ms": ext_t_ms,
                 "flash": flash_reading,
                 }
         return reading
