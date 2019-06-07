@@ -5,6 +5,7 @@
 import socket
 import ssl
 import time
+
 from network import LTE
 
 def test_connect():
@@ -18,12 +19,14 @@ def test_connect():
                 continue
             print("> {}".format(line))
 
-    send_at_cmd_pretty('AT+CFUN=0')
-    send_at_cmd_pretty('AT!="clearscanconfig"')
-    send_at_cmd_pretty('AT!="addscanfreq band=20 dl-earfcn=6400"')
-    send_at_cmd_pretty('AT+CGDCONT=1,"IP","telenor.iot"')
-    send_at_cmd_pretty('AT+CEREG=2')
-    send_at_cmd_pretty('AT+CFUN=1')
+    #send_at_cmd_pretty('AT+CFUN=0')
+    #send_at_cmd_pretty('AT!="clearscanconfig"')
+    #send_at_cmd_pretty('AT!="addscanfreq band=20 dl-earfcn=6400"')
+    #send_at_cmd_pretty('AT+CGDCONT=1,"IP","telenor.iot"')
+    #send_at_cmd_pretty('AT+CEREG=2')
+    #send_at_cmd_pretty('AT+CFUN=1')
+
+    lte.attach()
 
     print('Trying to attach!')
     while not lte.isattached():
