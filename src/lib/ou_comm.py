@@ -22,14 +22,13 @@ class InitModemError(OuCommError): pass
 class OuComm(object):
 
     def __init__(self):
-        self.timer = stopwatch.StopWatch(logger=_logger)
         self.lte = None
 
     def lte_connect(self):
         _logger.debug("pycom.lte_modem_en_on_boot() == %s",
                 pycom.lte_modem_en_on_boot())
 
-        timer = self.timer
+        timer = stopwatch.StopWatch(logger=_logger)
 
         timer.start_ms("LTE constructor")
         try:
@@ -46,12 +45,12 @@ class OuComm(object):
         timer.start_ms("LTE isattached")
         _, attach_ms = timer.wait_for(lte.isattached,
                 timeout=60*1000, sleep=10)
+        _logger.info('LTE attached in %d ms', attach_ms)
 
         timer.start_ms("lte.connect()")
         lte.connect()
         timer.stop()
 
-        _logger.info("Waiting for LTE connect")
         timer.start_ms("LTE isconnected")
         _, connect_ms = timer.wait_for(lte.isconnected,
                 timeout=5*1000, sleep=1)

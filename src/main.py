@@ -6,7 +6,7 @@ from ou_rtc import OuRtc
 from ou_sensors import OuSensors
 from ou_storage import OuStorage, SdMountError
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 def simple_read_loop():
 
