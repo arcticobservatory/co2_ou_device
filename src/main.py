@@ -16,7 +16,7 @@ def simple_read_loop():
 
     while True:
 
-        rtime = ou_rtc.get_time()
+        rtime = time.now()
         reading = ou_sensors.take_reading()
         reading["rtime"] = rtime
         (path, row) = ou_storage.record_reading(reading)
@@ -32,7 +32,20 @@ def simple_read_loop():
 #ou_comm = OuComm()
 #ou_comm.run()
 
-import ou_comm
-ou_comm.test_connect()
+ou_rtc = OuRtc()
+ou_rtc.compare_and_adjust()
 
-simple_read_loop()
+from ou_comm import OuComm
+ou_comm = OuComm()
+ou_comm.lte_connect()
+ou_rtc.set_from_ntp()
+#ou_comm.send_test_msg()
+#ou_comm.lte_disconnect()
+
+#simple_read_loop()
+
+
+# TO CONFIGURE
+#
+# - Time zone
+# - NTP IP address?
