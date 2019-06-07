@@ -8,43 +8,42 @@ import time
 
 from network import LTE
 
+import logging
+
+_logger = logging.getLogger("ou_comm")
+
 def test_connect():
+    _logger.debug("LTE constructor")
     lte = LTE()
 
-    def send_at_cmd_pretty(cmd):
-        response = lte.send_at_cmd(cmd).split('\r\n')
-        for line in response:
-            line = line.replace('\r', '').replace('\n', '')
-            if len(line) == 0:
-                continue
-            print("> {}".format(line))
-
-    #send_at_cmd_pretty('AT+CFUN=0')
-    #send_at_cmd_pretty('AT!="clearscanconfig"')
-    #send_at_cmd_pretty('AT!="addscanfreq band=20 dl-earfcn=6400"')
-    #send_at_cmd_pretty('AT+CGDCONT=1,"IP","telenor.iot"')
-    #send_at_cmd_pretty('AT+CEREG=2')
-    #send_at_cmd_pretty('AT+CFUN=1')
-
+    _logger.debug("lte.attach()")
     lte.attach()
 
-    print('Trying to attach!')
+    _logger.debug("Waiting for lte.isattached()")
     while not lte.isattached():
         time.sleep(1)
-    print('Attached!')
+    _logger.debug("Attached")
 
+    _logger.debug("lte.connect()")
     lte.connect()
+    _logger.debug("Waiting for lte.isconnected()")
     while not lte.isconnected():
         time.sleep(0.25)
-    print('Connected!')
+    _logger.debug('Connected!')
+
+    _logger.debug("Opening socket")
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # s = ssl.wrap_socket(s)
     # s.connect(socket.getaddrinfo('ident.me', 443)[0][-1])
     # addr = socket.getaddrinfo('nogne.qlown.me', 31415)[0][-1]
     addr = ('193.90.243.78', 31415)
+    _logger.debug("Sending test packet")
     s.sendto(b"{\"test\":\"test message\"}", addr)
     # print(s.recv(4096))
+    _logger.debug("Closing socket")
     s.close()
 
+    _logger.debug("lte.disconnect()")
     lte.disconnect()
+    _logger.debug("lte.dettach()")
     lte.dettach()

@@ -6,7 +6,7 @@ from ou_rtc import OuRtc
 from ou_sensors import OuSensors
 from ou_storage import OuStorage
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 ou_rtc = OuRtc()
 ou_sensors = OuSensors()
