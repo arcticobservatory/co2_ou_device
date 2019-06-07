@@ -11,6 +11,8 @@ import pycom
 
 import logging
 
+import polling
+
 _logger = logging.getLogger("ou_comm")
 
 def test_connect():
@@ -27,16 +29,15 @@ def test_connect():
     lte.attach()
 
     _logger.info("Waiting for LTE attach")
-    while not lte.isattached():
-        time.sleep(1)
-    _logger.info("LTE attached")
+    _, attach_ms = polling.poll_wait_ms(lte.isattached, timeout_ms=30*1000, sleep_ms=1)
+    _logger.info("LTE attached in %s ms", attach_ms)
 
     _logger.debug("lte.connect()")
     lte.connect()
-    _logger.info("Waiting for LTE connection")
-    while not lte.isconnected():
-        time.sleep(0.25)
-    _logger.info('LTE connected')
+
+    _logger.info("Waiting for LTE connect")
+    _, connect_ms = polling.poll_wait_ms(lte.isconnected, timeout_ms=30*1000, sleep_ms=1)
+    _logger.info('LTE connected in %d ms', connect_ms)
 
     _logger.debug("Opening socket")
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

@@ -16,7 +16,18 @@ _sleep_fns = {
 
 class PollTimeout(Exception): pass
 
-def poll_sleep_loop(poll_fns_dict, ticks_unit="ms", timeout_ticks=1000, sleep_ticks="10"):
+def poll_wait_ms(poll_fn, timeout_ms=1000, sleep_ms=1):
+    start_ticks = time.ticks_ms()
+    while True:
+        result = poll_fn()
+        ticks = time.ticks_diff(start_ticks, time.ticks_ms())
+        if result:
+            return (result, ticks)
+        if ticks > timeout_ms:
+            raise PollTimeout("Timeout after %d ms", ticks)
+        time.sleep_ms(sleep_ms)
+
+def poll_sleep_loop(poll_fns_dict, ticks_unit="ms", timeout_ticks=1000, sleep_ticks=10):
 
     ticks_fn = _ticks_fns[ticks_unit]
     sleep_fn = _sleep_fns[ticks_unit]
