@@ -2,6 +2,10 @@
 
 set -e -o pipefail
 
+port="$1";  shift
+src_dir="${1:-$(pwd)}"; shift || true
+markerfile="$(pwd)/.last_load_marker"
+
 if [ -d .venv ]; then
     source .venv/bin/activate
 else
@@ -10,14 +14,14 @@ else
     pip install adafruit-ampy
 fi
 
-cd src/
-markerfile=../.last_load_marker
+cd "$src_dir"
 
 findargs=()
 findargs+=(-L)                      # follow symlinks
 findargs+=(*)                       # in subdirectories (without ./ prefix)
 findargs+=(-type f)                 # regular files
 findargs+=(-not -iname '.*.sw?')    # exclude vim swap files
+findargs+=(-not -iname '.[a-zA-Z0-9]*')    # exclude hidden files
 
 if [ -f $markerfile ]; then
     findargs+=(-newer $markerfile)  # newer than the last load time
@@ -26,6 +30,6 @@ fi
 IFS=$'\n'
 for F in $(set -x; find "${findargs[@]}"); do
     #echo "$F"
-    (set -x; ampy "$@" put "$F" "$F")
+    (set -x; ampy --port "$port" put "$F" "$F")
 done
 touch $markerfile
