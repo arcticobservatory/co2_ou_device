@@ -42,8 +42,9 @@ def poll_sleep_loop(poll_fns_dict, ticks_unit="ms", timeout_ticks=1000, sleep_ti
             return results
 
         if time.ticks_diff(start_ticks, ticks_fn()) > timeout_ticks:
-            _logger.debug("Timeout reached (%d %s) waiting for %s",
-                    timeout_ticks, ticks_unit, poll_fns_dict.keys())
-            raise PollTimeout()
+            msg = "Timeout reached (%d %s) waiting for %s" % \
+                    (timeout_ticks, ticks_unit, poll_fns_dict.keys())
+            _logger.debug(msg)
+            raise PollTimeout(msg)
 
         sleep_fn(sleep_ticks)
