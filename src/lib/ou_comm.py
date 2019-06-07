@@ -19,24 +19,28 @@ def test_connect():
     _logger.debug("pycom.lte_modem_en_on_boot() == %s",
             pycom.lte_modem_en_on_boot())
 
-    _logger.debug("LTE constructor")
+    timer = polling.StopWatch(logger=_logger)
+
+    timer.start_ms("LTE constructor")
     lte = LTE()
+    timer.stop()
 
-    _logger.debug("lte.init()")
-    lte.init()
-
-    _logger.debug("lte.attach()")
+    timer.start_ms("lte.attach()")
     lte.attach()
+    timer.stop()
 
-    _logger.info("Waiting for LTE attach")
-    _, attach_ms = polling.poll_wait_ms(lte.isattached, timeout_ms=30*1000, sleep_ms=1)
-    _logger.info("LTE attached in %s ms", attach_ms)
+    timer.start_ms("LTE isattached")
+    _, attach_ms = timer.wait_for(lte.isattached,
+            timeout=60*1000, sleep=10)
 
-    _logger.debug("lte.connect()")
+    timer.start_ms("lte.connect()")
     lte.connect()
+    timer.stop()
 
     _logger.info("Waiting for LTE connect")
-    _, connect_ms = polling.poll_wait_ms(lte.isconnected, timeout_ms=30*1000, sleep_ms=1)
+    timer.start_ms("LTE isconnected")
+    _, connect_ms = timer.wait_for(lte.isconnected,
+            timeout=5*1000, sleep=1)
     _logger.info('LTE connected in %d ms', connect_ms)
 
     _logger.debug("Opening socket")
