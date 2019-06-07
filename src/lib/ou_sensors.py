@@ -23,6 +23,8 @@ class OuSensors(object):
         self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
     def take_reading(self):
+        rtime = time.gmtime()
+
         timer = stopwatch.StopWatch(logger=_logger)
         timer.start_ms("Sensor reading", logstart=True)
 
@@ -40,6 +42,7 @@ class OuSensors(object):
         flash_reading = self.flash_pin()
 
         reading = {
+                "rtime": rtime,
                 "co2": None,
                 "ext_t": ext_t,
                 "ext_t_ms": ext_t_ms,

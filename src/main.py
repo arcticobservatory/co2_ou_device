@@ -16,9 +16,7 @@ def simple_read_loop():
 
     while True:
 
-        rtime = time.gmtime()
         reading = ou_sensors.take_reading()
-        reading["rtime"] = rtime
         (path, row) = ou_storage.record_reading(reading)
         logging.info("%s: %s\t| raw reading: %s", path, row, reading)
 
