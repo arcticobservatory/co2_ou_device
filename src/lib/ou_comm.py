@@ -58,7 +58,7 @@ class OuComm(object):
         _logger.info('LTE connected in %d ms', connect_ms)
 
     def lte_disconnect(self):
-        timer = self.timer
+        timer = stopwatch.StopWatch(logger=_logger)
 
         timer.start_ms("lte.disconnect()")
         self.lte.disconnect()
