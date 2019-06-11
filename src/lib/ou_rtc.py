@@ -24,6 +24,20 @@ def fetch_ntp_time():
     seconds_1970_to_now = SECONDS_1970_TO_2000 + seconds_2000_to_now
     return seconds_1970_to_now
 
+def next_even_minutes(minutes_divisor):
+    tt = time.gmtime()
+    minutes = tt[4]
+    next_minutes = ((minutes // minutes_divisor) + 1) * minutes_divisor
+    # time.mktime() will handle minutes overflow as you would expect:
+    # 14:70 -> 15:10
+    next_tt = tt[0:4] + (next_minutes, 0, 0, 0)
+    return next_tt
+
+def seconds_until_time(next_tt):
+    now = time.time()
+    secs = time.mktime(next_tt) - now
+    return secs
+
 class OuRtc(object):
 
     def __init__(self):

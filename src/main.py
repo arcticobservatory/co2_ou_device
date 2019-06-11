@@ -10,8 +10,8 @@ import ou_sensors
 import ou_storage
 
 logging.basicConfig(level=logging.INFO)
-
-ou_sensors._logger.setLevel(logging.DEBUG)
+#ou_sensors._logger.setLevel(logging.DEBUG)
+#ou_rtc._logger.setLevel(logging.DEBUG)
 
 def simple_read_loop():
 
@@ -50,10 +50,11 @@ def simple_autonomous():
 
             reading = sensors.take_reading()
             (path, row) = storage.record_reading(reading)
-            logging.info("Pause before deep sleep (interrupt now if you need to)")
-            for _ in range(1, 5): time.sleep(1)
-            logging.info("Going into deep sleep")
-            machine.deepsleep(20 * 1000)
+
+            wake_time = ou_rtc.next_even_minutes(5)
+            sleep_sec = ou_rtc.seconds_until_time(wake_time)
+            logging.info("Sleeping until %s (%d sec)", wake_time, sleep_sec)
+            machine.deepsleep(sleep_sec*1000)
 
     except Exception as e:
         raise
