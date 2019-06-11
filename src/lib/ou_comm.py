@@ -24,12 +24,18 @@ class OuComm(object):
     def __init__(self):
         self.lte = None
 
+    def set_persistent_settings(self):
+        if pycom.lte_modem_en_on_boot():
+            _logger.info("LTE on boot was enabled. Disabling.")
+            pycom.lte_modem_en_on_boot(False)
+
+        if pycom.wifi_on_boot():
+            _logger.info("Wifi on boot was enabled. Disabling.")
+            pycom.wifi_on_boot(False)
+
     def lte_connect(self):
         _logger.info("Attempting to connect LTE")
         timer = stopwatch.StopWatch(logger=_logger)
-
-        _logger.debug("pycom.lte_modem_en_on_boot() == %s",
-                pycom.lte_modem_en_on_boot())
 
         timer.start_ms("LTE constructor")
         try:

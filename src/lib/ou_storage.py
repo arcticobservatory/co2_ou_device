@@ -13,6 +13,7 @@ import flaky
 _logger = logging.getLogger("ou_storage")
 
 class OuStorageError(Exception): pass
+class NoSdCardError(OuStorageError): pass
 class SdMountError(OuStorageError): pass
 
 class OuStorage(object):
@@ -24,7 +25,13 @@ class OuStorage(object):
         _logger.debug("Initializing SPI SD card...")
         self.spi = SPI(0, mode=SPI.MASTER)
         SD_CS = Pin('P12')
-        self.sd = sdcard.SDCard(self.spi, SD_CS)
+        try:
+            self.sd = sdcard.SDCard(self.spi, SD_CS)
+        except OSError as e:
+            if "no sd card" in str(e).lower():
+                raise NoSdCardError(e)
+            else:
+                raise
 
         try:
             flaky.retry_call( os.mount, self.sd, self.sd_root )
@@ -35,6 +42,7 @@ class OuStorage(object):
         if _logger.isEnabledFor(logging.DEBUG):
             _logger.debug("ls %s: %s", self.sd_root, os.listdir(self.sd_root))
 
+    def ensure_needed_dirs(self):
         _logger.debug("Ensuring observation dir exists %s", self.obs_dir)
         created_dirs = fileutil.mkdirs(self.obs_dir)
         if _logger.isEnabledFor(logging.DEBUG):
