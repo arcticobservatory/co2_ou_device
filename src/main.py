@@ -11,6 +11,8 @@ import ou_storage
 
 logging.basicConfig(level=logging.INFO)
 
+ou_sensors._logger.setLevel(logging.DEBUG)
+
 def simple_read_loop():
 
     rtc = ou_rtc.OuRtc()
@@ -54,7 +56,7 @@ def simple_autonomous():
             machine.deepsleep(20 * 1000)
 
     except Exception as e:
-        #raise
+        raise
         logging.info("Restarting soon after unexpected error. %s: %s",
                 type(e).__name__, e)
         for _ in range(1, 10): time.sleep(1)

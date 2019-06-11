@@ -47,4 +47,5 @@ class StopWatch(object):
                 msg = "Timeout waiting for %s after %d %s" % (name, elapsed, self.unit)
                 self.logger.debug(msg)
                 raise TimeoutError(msg)
-            self.sleepfn(sleep)
+            if sleep:
+                self.sleepfn(sleep)
