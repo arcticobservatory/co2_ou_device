@@ -14,6 +14,13 @@ _logger = logging.getLogger("co2unit_hw")
 
 class NoSdCardError(Exception): pass
 
+FLAG_MOSFET_PIN = const(1<<0)
+FLAG_SD_CARD    = const(1<<1)
+FLAG_ERTC       = const(1<<2)
+FLAG_FLASH_PIN  = const(1<<3)
+FLAG_CO2        = const(1<<4)
+FLAG_ETEMP      = const(1<<5)
+
 class Co2UnitHw(object):
     def __init__(self):
         self._co2 = None
@@ -45,28 +52,6 @@ class Co2UnitHw(object):
     def mosfet_pin(self):
         return self._mosfet_pin
 
-    def co2(self):
-        if not self._co2:
-            _logger.debug("Initializing co2 sensor")
-            self._co2 = explorir.ExplorIr(self._co2_uart, scale=10)
-        return self._co2
-
-    def etemp(self):
-        if not self._etemp:
-            _logger.debug("Initializing external temp sensor")
-            onewire_bus = OneWire(self._onewire_pin)
-            self._etemp = DS18X20(onewire_bus)
-        return self._etemp
-
-    def flash_pin(self):
-        return self._flash_pin
-
-    def ertc(self):
-        if not self._ertc:
-            _logger.debug("Initializing external RTC")
-            self._ertc = DS3231(0, pins=self._i2c_pins)
-        return self._ertc
-
     def sdcard(self):
         if not self._sdcard:
             _logger.debug("Initializing SD card")
@@ -80,9 +65,35 @@ class Co2UnitHw(object):
                     raise
         return self._sdcard
 
+    def ertc(self):
+        if not self._ertc:
+            _logger.debug("Initializing external RTC")
+            self._ertc = DS3231(0, pins=self._i2c_pins)
+        return self._ertc
+
+    def flash_pin(self):
+        return self._flash_pin
+
+    def co2(self):
+        if not self._co2:
+            _logger.debug("Initializing co2 sensor")
+            self._co2 = explorir.ExplorIr(self._co2_uart, scale=10)
+        return self._co2
+
+    def etemp(self):
+        if not self._etemp:
+            _logger.debug("Initializing external temp sensor")
+            onewire_bus = OneWire(self._onewire_pin)
+            self._etemp = DS18X20(onewire_bus)
+        return self._etemp
+
     def quick_check(self):
-        def log_error(msg, e):
-            _logger.warning("%s. %s: %s", msg, type(e).__name__, e)
+        _logger.info("Starting hardware quick check")
+
+        failures = 0x0
+        def log_error(flag, desc, e):
+            failures = failures | flag
+            _logger.warning("%s. %s: %s", desc, type(e).__name__, e)
 
         try:
             mosfet_pin = self.mosfet_pin()
@@ -92,14 +103,7 @@ class Co2UnitHw(object):
             mosfet_pin(True)
             _logger.info("Mosfet pin new state: %s", mosfet_pin())
         except Exception as e:
-            log_error("Mosfet pin failure", e)
-
-        try:
-            ertc = self.ertc()
-            time_tuple = ertc.get_time()
-            _logger.info("External RTC ok. Current time: %s", time_tuple)
-        except Exception as e:
-            log_error("External RTC failure", e)
+            log_error(FLAG_MOSFET_PIN, "Mosfet pin", e)
 
         try:
             import os
@@ -110,14 +114,21 @@ class Co2UnitHw(object):
             os.unmount(mountpoint)
             _logger.info("SD card OK. Contents: %s", contents)
         except Exception as e:
-            log_error("SD card failure", e)
+            log_error(FLAG_SD_CARD, "SD card", e)
+
+        try:
+            ertc = self.ertc()
+            time_tuple = ertc.get_time()
+            _logger.info("External RTC ok. Current time: %s", time_tuple)
+        except Exception as e:
+            log_error(FLAG_ERTC, "External RTC", e)
 
         try:
             flash_pin = self.flash_pin()
             flash_state = flash_pin()
             _logger.info("Flash pin state: %s", flash_state)
         except Exception as e:
-            log_error("Flash pin failure failure", e)
+            log_error(FLAG_FLASH_PIN, "Flash pin", e)
 
         try:
             co2 = self.co2()
@@ -125,7 +136,7 @@ class Co2UnitHw(object):
             reading = co2.read_co2()
             _logger.info("CO2 sensor ok. Current level: %d ppm", reading)
         except Exception as e:
-            log_error("CO2 sensor failure", e)
+            log_error(FLAG_CO2, "CO2 sensor", e)
 
         try:
             import time
@@ -141,4 +152,6 @@ class Co2UnitHw(object):
                     raise TimeoutError("Timeout reading external temp sensor after %d ms", elapsed)
             _logger.info("External temp sensor ok. Current temp: %s C", reading)
         except Exception as e:
-            log_error("External temp sensor failure", e)
+            log_error(FLAG_ETEMP, "External temp sensor", e)
+
+        return failures
