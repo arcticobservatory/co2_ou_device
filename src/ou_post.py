@@ -11,10 +11,12 @@ import ou_storage
 _logger = logging.getLogger("POST")
 
 STATE_COLORS = {
+        "POST_IN_PROGRESS": 0x442200,
         "TRYING_LTE": 0x000044,
         "LTE_CONNECTED": 0x002244,
         "OK": 0x008800,
         "ERRORS": 0x880000,
+        "RESETTING": 0x442200,
         }
 
 ERROR_COLORS = {
@@ -66,8 +68,9 @@ def post_on_boot(value=None):
         return pycom.nvs_set("ou_post_on_boot", int(value))
 
 def do_post():
-    _logger.info("Power-on Self Test")
     pycom.heartbeat(False)
+    pycom.rgbled(STATE_COLORS["POST_IN_PROGRESS"])
+    _logger.info("Power-on Self Test")
     errors = []
 
     try:
@@ -95,7 +98,7 @@ def do_post():
         pycom.rgbled(STATE_COLORS["LTE_CONNECTED"])
         rtc.set_from_ntp()
         comm.lte_disconnect()
-        pycom.rgbled(0x000000)
+        pycom.rgbled(STATE_COLORS["POST_IN_PROGRESS"])
     except ou_comm.InitModemError as e:
         errors.append("CANNOT_INIT_LTE")
         _logger.error("Cannot init LTE constructor: %s", e)

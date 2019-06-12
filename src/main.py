@@ -50,6 +50,7 @@ def simple_autonomous():
             while True: ou_post.show_errors(errors)
         elif ou_post.should_try_reset(errors):
             logging.info("Errors may be fixed with reset. Resetting.")
+            ou_post.blink_rgbled(ou_post.STATE_COLORS["RESETTING"])
             ou_post.post_on_boot(True)
             machine.reset()
 
