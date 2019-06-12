@@ -98,10 +98,7 @@ class Co2UnitHw(object):
         try:
             mosfet_pin = self.mosfet_pin()
             mosfet_pin.mode(Pin.OUT)
-            _logger.info("Mosfet pin initial state: %s", mosfet_pin())
-            _logger.info("Mosfet pin: turning on")
-            mosfet_pin(True)
-            _logger.info("Mosfet pin new state: %s", mosfet_pin())
+            _logger.info("Mosfet pin state: %s", mosfet_pin())
         except Exception as e:
             log_error(FLAG_MOSFET_PIN, "Mosfet pin", e)
 

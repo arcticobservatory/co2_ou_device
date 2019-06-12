@@ -89,7 +89,8 @@ def simple_autonomous():
 
 import co2unit_hw
 hw = co2unit_hw.Co2UnitHw()
-hw._select_breadboard_pins()
+#hw._select_breadboard_pins()
+hw.mosfet_pin()(True)
 failures = hw.quick_check()
 print(failures)
 
