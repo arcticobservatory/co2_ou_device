@@ -22,9 +22,9 @@ class Co2UnitHw(object):
         self._etemp = None
         self._ertc = None
         self._sdcard = None
-        self._select_production_pins()
+        self.select_production_pins()
 
-    def _select_production_pins(self):
+    def select_production_pins(self):
         _logger.debug("Selecting pins for production unit")
         self._co2_uart = UART(1, 9600)
         self._i2c_pins = ('P22', 'P21')
@@ -34,7 +34,7 @@ class Co2UnitHw(object):
         self._flash_pin = Pin('P2')
         self._mosfet_pin = Pin('P12')
 
-    def _select_breadboard_pins(self):
+    def select_breadboard_pins(self):
         _logger.debug("Selecting pins for breadboard unit")
         self._co2_uart = UART(1, 9600)
         self._i2c_pins = ('P22', 'P21')

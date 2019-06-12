@@ -131,7 +131,7 @@ def show_boot_flags():
     _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
     _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
 
-def test_lte_ntp(ertc, max_drift_secs=4):
+def test_lte_ntp(hw, max_drift_secs=4):
     global failures
     _logger.info("Testing LTE connectivity...")
 
@@ -179,7 +179,7 @@ def test_lte_ntp(ertc, max_drift_secs=4):
                 ntp_tuple = time.gmtime(ts)
                 irtc = RTC()
                 irtc.init(ntp_tuple)
-                ertc.save_time()
+                hw.ertc.save_time()
                 _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
             _logger.info("Got time with NTP (%d ms). Shutting down...", elapsed)
 
