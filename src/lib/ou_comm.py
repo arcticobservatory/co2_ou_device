@@ -69,14 +69,17 @@ class OuComm(object):
         timer.start_ms("lte.disconnect()")
         self.lte.disconnect()
         timer.stop()
+        _logger.info('LTE disconnected')
 
         timer.start_ms("lte.detach()")
         self.lte.dettach()
         timer.stop()
+        _logger.info('LTE detached')
 
         timer.start_ms("lte.deinit()")
         self.lte.deinit()
         timer.stop()
+        _logger.info('LTE de-initialized')
 
     def send_test_msg(self):
         timer = stopwatch.StopWatch(logger=_logger)
