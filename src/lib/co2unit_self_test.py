@@ -99,42 +99,8 @@ def quick_check(hw):
                 raise TimeoutError("Timeout reading external temp sensor after %d ms", elapsed)
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
 
-    global failures
-    return failures
-
-MAX_DRIFT = 4
-
-def rtc_sanity_check(ertc):
     with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
-        irtc = RTC()
-
-        itime = irtc.now()
-        etime = ertc.get_time()
-
-        iok = itime[0] > 2010
-        eok = etime[0] > 2010
-
-        idrift = time.mktime(itime) - time.mktime(etime)
-
-        _logger.debug("External RTC time: %s", etime)
-        _logger.debug("Internal RTC time: %s (%d s)", itime, idrift)
-
-        if eok and iok and abs(idrift) < MAX_DRIFT:
-            _logger.info("Both RTCs ok. Internal drift acceptable (%d s, max %d s)", idrift, MAX_DRIFT)
-
-        elif eok and iok:
-            _logger.info("Internal RTC has drifted %d s; setting from external %s", idrift, etime)
-            etime = ertc.get_time(set_rtc=True)
-
-        elif eok:
-            _logger.info("Internal RTC reset; setting from external %s", etime)
-            etime = ertc.get_time(set_rtc=True)
-
-        elif iok:
-            _logger.info("External RTC reset; setting from internal %s", itime)
-            ertc.save_time()
-        else:
-            raise Exception("Both RTCs reset; no reliable time source; %s" % itime)
+        hw.sync_to_most_reliable_rtc()
 
     global failures
     return failures
@@ -145,7 +111,7 @@ def show_boot_flags():
     _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
     _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
 
-def test_lte_ntp(ertc):
+def test_lte_ntp(ertc, max_drift_secs=4):
     global failures
     _logger.info("Testing LTE connectivity...")
 
@@ -168,7 +134,7 @@ def test_lte_ntp(ertc):
             while True:
                 elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
                 if lte.isattached(): break
-                if elapsed > 120 * 1000: raise TimeoutError()
+                if elapsed > 150 * 1000: raise TimeoutError()
             _logger.info("LTE attach ok (%d ms). Connecting...", elapsed)
 
         with CheckStep(FLAG_LTE_CONNECT):
@@ -187,8 +153,8 @@ def test_lte_ntp(ertc):
             irtc = RTC()
             ts = time_util.fetch_ntp_time()
             idrift = ts - time.mktime(irtc.now())
-            if abs(idrift) < MAX_DRIFT:
-                _logger.info("Drift from NTP: %s s; within threshold (%d s)", idrift, MAX_DRIFT)
+            if abs(idrift) < max_drift_secs:
+                _logger.info("Drift from NTP: %s s; within threshold (%d s)", idrift, max_drift_secs)
             else:
                 ntp_tuple = time.gmtime(ts)
                 irtc = RTC()

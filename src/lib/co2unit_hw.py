@@ -1,8 +1,10 @@
 import logging
+import time
 
 from machine import Pin
 from machine import SPI
 from machine import UART
+from machine import RTC
 
 from ds3231 import DS3231
 from onewire import DS18X20
@@ -79,3 +81,32 @@ class Co2UnitHw(object):
             onewire_bus = OneWire(self._onewire_pin)
             self._etemp = DS18X20(onewire_bus)
         return self._etemp
+
+    def sync_to_most_reliable_rtc(self, max_drift_secs=4):
+        irtc = RTC()
+        ertc = self.ertc()
+
+        itime = irtc.now()
+        etime = ertc.get_time()
+
+        iok = itime[0] > 2010
+        eok = etime[0] > 2010
+
+        idrift = time.mktime(itime) - time.mktime(etime)
+
+        _logger.debug("External RTC time: %s", etime)
+        _logger.debug("Internal RTC time: %s (%d s)", itime, idrift)
+
+        if eok and iok and abs(idrift) < max_drift_secs:
+            _logger.info("Both RTCs ok. Internal drift acceptable (%d s, max %d s)", idrift, max_drift_secs)
+        elif eok and iok:
+            _logger.info("Internal RTC has drifted %d s; setting from external %s", idrift, etime)
+            etime = ertc.get_time(set_rtc=True)
+        elif eok:
+            _logger.info("Internal RTC reset; setting from external %s", etime)
+            etime = ertc.get_time(set_rtc=True)
+        elif iok:
+            _logger.info("External RTC reset; setting from internal %s", itime)
+            ertc.save_time()
+        else:
+            raise Exception("Both RTCs reset; no reliable time source; %s" % itime)

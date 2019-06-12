@@ -96,10 +96,9 @@ hw = co2unit_hw.Co2UnitHw()
 #hw._select_breadboard_pins()
 hw.mosfet_pin()(True)
 co2unit_self_test.quick_check(hw)
-co2unit_self_test.rtc_sanity_check(hw.ertc())
-co2unit_self_test.show_boot_flags()
 co2unit_self_test.test_lte_ntp(hw.ertc())
-print(co2unit_self_test.failures)
+print("{:b}".format(co2unit_self_test.failures))
+co2unit_self_test.show_boot_flags()
 
 # TO CONFIGURE
 #
