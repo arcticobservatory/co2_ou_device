@@ -1,0 +1,57 @@
+#!/bin/bash
+
+git submodule init
+git submodule update
+
+
+cat > src/lib/ds3231.py <<-END
+# Driver for DS3231 RTC
+#
+# Copied unmodified from the uptyon-aq-monitor repository
+# https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
+#
+# Original file is MIT licenced
+
+END
+cat thirdparty/upython-aq-monitor/lib/ds3231.py >> src/lib/ds3231.py
+
+
+cat > src/lib/logging.py <<-END
+# MicroPython reimplementation of Python's logging library
+#
+# Copied unmodified from the micropython-lib repository
+# https://github.com/micropython/micropython-lib/blob/master/logging/logging.py
+#
+# Original library is MIT licensed, as noted in setup.py
+# https://github.com/micropython/micropython-lib/blob/master/logging/setup.py
+
+END
+cat thirdparty/micropython-lib/logging/logging.py >> src/lib/logging.py
+
+
+cat > src/lib/ntptime.py <<-END
+# Simple NTP client implementation
+#
+# Copied unmodified from the original MicroPython source
+# https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
+#
+# Original library is MIT licensed
+# https://github.com/micropython/micropython/blob/master/LICENSE
+
+END
+cat thirdparty/micropython/ports/esp8266/modules/ntptime.py >> src/lib/ntptime.py
+
+
+cat > src/lib/onewire.py <<-END
+# Driver onewire bus
+#
+# Copied unmodified from the pycom-libraries repository
+# https://github.com/pycom/pycom-libraries/blob/master/lib/onewire/onewire.py
+#
+# Original code is released under the Pycom license v2.2,
+# which states that the file can be used as if under GPLv3 or later,
+# or that it can be unsed without publishing source code if it is used unmodified.
+# https://github.com/pycom/pycom-libraries/tree/master/license
+
+END
+cat thirdparty/pycom-libraries/lib/onewire/onewire.py >> src/lib/onewire.py

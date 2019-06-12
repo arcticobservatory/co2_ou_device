@@ -1,11 +1,11 @@
-# This file taken from the FiPy forums.
+# Driver for SD cards using SPI bus
 #
-#   https://forum.pycom.io/topic/2064/external-sd-card/20
+# Adapted from example code on the the Pycom forums
+# https://forum.pycom.io/topic/2064/external-sd-card/20
 #
-# It appears to be a modified version of the sdcard driver from the MicroPython
+# That example appears to be a modified version of the sdcard driver from the MicroPython
 # source code at revision 55f33240f (MIT Licensed).
-#
-#   https://github.com/micropython/micropython/blob/55f33240f/drivers/sdcard/sdcard.py
+# https://github.com/micropython/micropython/blob/55f33240f/drivers/sdcard/sdcard.py
 #
 # The key changes are that this version uses named parameters instead of
 # positional parameters when calling SPI read methods. For example:
@@ -13,13 +13,15 @@
 #    -        self.spi.read(1, 0xff) # ignore stuff byte
 #    +        self.spi.read(1, write=0xff) # ignore stuff byte
 #
-# The Pycom firmware's SPI driver can't seem to handle that:
+# The Pycom firmware's SPI driver does not accept the parameter without the
+# parameter name, resulting in "TypeError: extra positional arguments given"
 #
-#   TypeError: extra positional arguments given
-#
-# Error confirmed with firmware as recent as:
-#
+# This restriction confirmed with firmware as recent as:
 #   Pycom MicroPython 1.18.2.r7 [v1.8.6-849-df9f237] on 2019-05-14
+#
+# Further changes to the forum example code by Mike Murphy (michael.j.murphy@uit.no):
+#
+# - Added the "write=" parameter syntax to several other calls
 
 """
 MicroPython driver for SD cards using SPI bus.
