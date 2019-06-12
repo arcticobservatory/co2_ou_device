@@ -84,6 +84,13 @@ def do_post():
         _logger.error("Other storage error: %s: %s", type(e).__name__, e)
 
     try:
+        sensors = ou_sensors.OuSensors()
+        reading = sensors.take_reading()
+    except Exception as e:
+        errors.append("OTHER_SENSOR_ERROR")
+        _logger.error("Other sensor error: %s: %s", type(e).__name__, e)
+
+    try:
         rtc = ou_rtc.OuRtc()
         rtc.compare_and_adjust()
     except Exception as e:
@@ -109,13 +116,6 @@ def do_post():
     if not ou_rtc.time_reasonable():
         errors.append("NO_TIME_SOURCE")
         _logger.error("No time source")
-
-    try:
-        sensors = ou_sensors.OuSensors()
-        reading = sensors.take_reading()
-    except Exception as e:
-        errors.append("OTHER_SENSOR_ERROR")
-        _logger.error("Other sensor error: %s: %s", type(e).__name__, e)
 
     show_errors(errors)
     return errors

@@ -1,6 +1,6 @@
 from machine import UART
 import logging
-import stopwatch
+import time
 
 EXPLORIR_MODE_CMD = const(0)
 EXPLORIR_MODE_STREAMING = const(1)
@@ -8,45 +8,49 @@ EXPLORIR_MODE_POLLING = const(2)
 
 _logger = logging.getLogger("explorir")
 
-class ExplorIR(object):
+class ExplorIrError(Exception): pass
+
+class ExplorIr(object):
     def __init__(self, uart=1, scale=10):
         self.uart = UART(uart, 9600)
         self.scale = scale
 
-    def set_mode(self, mode):
-        cmd = b"K %d\r\n" % mode
-        _logger.debug("CO2: switching to mode %d" % mode)
-        _logger.debug("CO2 < %s", cmd)
+    def uart_cmd(self, cmd, expect_code=None, skip_others=False, timeout_ms=100):
+        _logger.debug("UART < %s", cmd)
         self.uart.write(cmd)
-        def command_ack():
+
+        start_ticks = time.ticks_ms()
+        while True:
             line = self.uart.readline()
-            _logger.debug("CO2 > %s", line)
+            _logger.debug("UART > %s", line)
             if line == None:
-                return None
-            line = line.decode("ascii")
-            if line.startswith(" K "):
-                K = int(line[3:8])
-                if K!=mode:
-                    raise Exception("CO2 responded with unexpected mode: %s" % line)
-                return line
-            elif line.startswith(" ?"):
-                raise Exception("Error CO2 sensor response: %s" % line)
+                # No answer yet. Wait and try again
+                time.sleep_ms(1)
             else:
-                return None
-        timer = stopwatch.StopWatch("CO2 sensor poll mode ack")
-        timer.wait_for(command_ack, timeout=100, sleep=1)
+                line = line.decode("ascii")
+                if line[1]==expect_code:
+                    return line
+                elif line[1]=="?":
+                    raise ExplorIrError("Error response from sensor: %s" % line)
+                elif not skip_others:
+                    raise ExplorIrError("Unexpected response from sensor: %s" % line)
+
+            elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
+            if elapsed > timeout_ms:
+                raise TimeoutError("Timeout trying to read sensor: %d ms" % elapsed)
+
+    def set_mode(self, mode):
+        _logger.debug("CO2: switching to mode %d" % mode)
+        cmd = b"K %d\r\n" % mode
+        line = self.uart_cmd(cmd, expect_code="K", skip_others=True)
+        K = int(line[3:8])
+        if K!=mode:
+            raise ExplorIrError("Switch to mode %d failed. Got response %s" % (mode, line))
 
     def read_co2(self):
-        cmd = b"Z\r\n"
         _logger.debug("CO2: reading")
-        _logger.debug("CO2 < %s", cmd)
-        self.uart.write(cmd)
-        timer = stopwatch.StopWatch("CO2 sensor read")
-        line, _ = timer.wait_for(self.uart.readline, timeout=100, sleep=1)
-        _logger.debug("CO2 > %s", line)
-        line = line.decode("ascii")
-        if not line.startswith(" Z "):
-            raise Exception("Unexpected CO2 sensor response: %s" % line)
+        cmd = b"Z\r\n"
+        line = self.uart_cmd(cmd, expect_code="Z")
         Z = int(line[3:8])
         ppm = Z * self.scale
         return ppm

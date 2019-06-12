@@ -25,7 +25,7 @@ class OuSensors(object):
         self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
         _logger.debug("Initializing CO2 sensor")
-        self.co2 = explorir.ExplorIR(uart=1, scale=10)
+        self.co2 = explorir.ExplorIr(uart=1, scale=10)
         self.co2.set_mode(explorir.EXPLORIR_MODE_POLLING)
 
     def take_reading(self):
