@@ -7,11 +7,11 @@ import ssl
 import time
 
 from network import LTE
+import machine
 import pycom
 
 import logging
 
-import flaky
 import stopwatch
 
 _logger = logging.getLogger("ou_comm")
@@ -39,9 +39,15 @@ class OuComm(object):
 
         timer.start_ms("LTE constructor")
         try:
-            self.lte = flaky.retry_call( LTE, wait_ms=500)
-            lte = self.lte
+            lte = LTE()
+            self.lte = lte
+            _logger.info("LTE constructor OK")
+            _logger.info("Boot status: lte on boot %s; reset_cause %s",
+                    pycom.lte_modem_en_on_boot(), machine.reset_cause())
         except OSError as e:
+            _logger.error("LTE constructor FAILED. %s: %s", type(e).__name__, e)
+            _logger.info("Boot status: lte on boot %s; reset_cause %s",
+                    pycom.lte_modem_en_on_boot(), machine.reset_cause())
             raise InitModemError(e)
         timer.stop()
 

@@ -93,7 +93,7 @@ def do_post():
     try:
         pycom.rgbled(STATE_COLORS["TRYING_LTE"])
         comm = ou_comm.OuComm()
-        comm.set_persistent_settings()
+        #comm.set_persistent_settings()
         comm.lte_connect()
         pycom.rgbled(STATE_COLORS["LTE_CONNECTED"])
         rtc.set_from_ntp()
@@ -101,7 +101,7 @@ def do_post():
         pycom.rgbled(STATE_COLORS["POST_IN_PROGRESS"])
     except ou_comm.InitModemError as e:
         errors.append("CANNOT_INIT_LTE")
-        _logger.error("Cannot init LTE constructor: %s", e)
+        _logger.error("Cannot init LTE subsystem: %s", e)
     except Exception as e:
         errors.append("OTHER_LTE_ERROR")
         _logger.error("Other LTE error: %s: %s", type(e).__name__, e)
