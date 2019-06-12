@@ -56,8 +56,9 @@ class OuComm(object):
         timer.stop()
 
         timer.start_ms("LTE isattached")
+        # CAT-M1 spec says up to 2 minutes for attach
         _, attach_ms = timer.wait_for(lte.isattached,
-                timeout=60*1000, sleep=10)
+                timeout=120*1000, sleep=10)
         _logger.info('LTE attached in %d ms', attach_ms)
 
         timer.start_ms("lte.connect()")
