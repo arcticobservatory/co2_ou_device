@@ -2,7 +2,6 @@ import os
 
 from machine import Pin
 from machine import SPI
-from machine import SD
 
 import logging
 import sdcard

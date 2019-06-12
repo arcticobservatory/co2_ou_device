@@ -3,6 +3,7 @@ import time
 from onewire import OneWire
 from onewire import DS18X20
 from machine import Pin
+from machine import UART
 
 import logging
 
@@ -25,7 +26,8 @@ class OuSensors(object):
         self.flash_pin.callback(Pin.IRQ_FALLING, self.on_flash_pin)
 
         _logger.debug("Initializing CO2 sensor")
-        self.co2 = explorir.ExplorIr(uart=1, scale=10)
+        uart = UART(1, 9600)
+        self.co2 = explorir.ExplorIr(uart, scale=10)
         self.co2.set_mode(explorir.EXPLORIR_MODE_POLLING)
 
     def take_reading(self):

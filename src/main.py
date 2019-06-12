@@ -85,7 +85,12 @@ def simple_autonomous():
         for _ in range(0,10): time.sleep(1)
         machine.reset()
 
-simple_autonomous()
+#simple_autonomous()
+
+import co2unit_hw
+hw = co2unit_hw.Co2UnitHw()
+hw._select_breadboard_pins()
+hw.quick_check()
 
 # TO CONFIGURE
 #

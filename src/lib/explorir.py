@@ -11,8 +11,8 @@ _logger = logging.getLogger("explorir")
 class ExplorIrError(Exception): pass
 
 class ExplorIr(object):
-    def __init__(self, uart=1, scale=10):
-        self.uart = UART(uart, 9600)
+    def __init__(self, uart, scale=10):
+        self.uart = uart
         self.scale = scale
 
     def uart_cmd(self, cmd, expect_code=None, skip_others=False, timeout_ms=100):
