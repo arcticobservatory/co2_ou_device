@@ -12,23 +12,41 @@ import time_util
 
 _logger = logging.getLogger("co2unit_self_test")
 
-FLAG_MOSFET_PIN = const(1<<0)
-FLAG_SD_CARD    = const(1<<1)
-FLAG_ERTC       = const(1<<2)
-FLAG_FLASH_PIN  = const(1<<3)
-FLAG_CO2        = const(1<<4)
-FLAG_ETEMP      = const(1<<5)
+FLAG_MOSFET_PIN     = const(1<<0)
+FLAG_SD_CARD        = const(1<<1)
+FLAG_ERTC           = const(1<<2)
+FLAG_FLASH_PIN      = const(1<<3)
+FLAG_CO2            = const(1<<4)
+FLAG_ETEMP          = const(1<<5)
 
 FLAG_TIME_SOURCE    = const(1<<6)
 
-FLAG_LTE_INIT           = const(1<<7)
-FLAG_LTE_ATTACH         = const(1<<8)
-FLAG_LTE_CONNECT        = const(1<<9)
-FLAG_LTE_SHUTDOWN       = const(1<<10)
-
-FLAG_NTP_FETCH  = const(1<<11)
+FLAG_LTE_INIT       = const(1<<7)
+FLAG_LTE_ATTACH     = const(1<<8)
+FLAG_LTE_CONNECT    = const(1<<9)
+FLAG_NTP_FETCH      = const(1<<10)
+FLAG_LTE_SHUTDOWN   = const(1<<11)
 
 failures = 0x0
+
+def color_for_flag(flag):
+    if flag==0: return 0x0
+    elif flag==FLAG_MOSFET_PIN     : return 0x0
+    elif flag==FLAG_SD_CARD        : return 0x440000
+    elif flag==FLAG_ERTC           : return 0x004400
+    elif flag==FLAG_FLASH_PIN      : return 0x004400
+    elif flag==FLAG_CO2            : return 0x004400
+    elif flag==FLAG_ETEMP          : return 0x004400
+
+    elif flag==FLAG_TIME_SOURCE    : return 0x442200
+
+    elif flag==FLAG_LTE_INIT       : return 0x000022
+    elif flag==FLAG_LTE_ATTACH     : return 0x002222
+    elif flag==FLAG_LTE_CONNECT    : return 0x004422
+    elif flag==FLAG_NTP_FETCH      : return 0x006622
+    elif flag==FLAG_LTE_SHUTDOWN   : return 0x000022
+
+    else: return 0x0
 
 class CheckStep(object):
     def __init__(self, flag, suppress_exception=False):
@@ -39,12 +57,14 @@ class CheckStep(object):
         self.extra_args = None
 
     def __enter__(self):
-        self.start_ticks = time.ticks_ms()
+        pycom.rgbled(color_for_flag(self.flag))
         _logger.debug("%08x...", self.flag)
+        self.start_ticks = time.ticks_ms()
 
     def __exit__(self, exc_type, exc_value, traceback):
-        elapsed = time.ticks_diff(self.start_ticks, time.ticks_ms())
         global failures
+        elapsed = time.ticks_diff(self.start_ticks, time.ticks_ms())
+        pycom.rgbled(0x0)
         if exc_type:
             failures |= self.flag
             _logger.warning("%08x failed (%d ms). %s: %s", self.flag, elapsed, exc_type, exc_value)

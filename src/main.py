@@ -87,6 +87,8 @@ def simple_autonomous():
 
 #simple_autonomous()
 
+pycom.heartbeat(False)
+
 import co2unit_hw
 import co2unit_self_test
 
