@@ -5,6 +5,7 @@ from machine import Pin
 from machine import SPI
 from machine import UART
 from machine import RTC
+import pycom
 
 from ds3231 import DS3231
 from onewire import DS18X20
@@ -16,33 +17,43 @@ _logger = logging.getLogger("co2unit_hw")
 
 class NoSdCardError(Exception): pass
 
+PINSET_PRODUCTION = const(0)
+PINSET_BREADBOARD = const(1)
+
+def pinset_on_boot(pinset):
+    return pycom.nvs_set("co2unit_pinset", pinset)
+
 class Co2UnitHw(object):
     def __init__(self):
         self._co2 = None
         self._etemp = None
         self._ertc = None
         self._sdcard = None
-        self.select_production_pins()
 
-    def select_production_pins(self):
-        _logger.debug("Selecting pins for production unit")
-        self._co2_uart = UART(1, 9600)
-        self._i2c_pins = ('P22', 'P21')
+        try:
+            pinset = pycom.nvs_get("co2unit_pinset")
+        except ValueError:
+            pinset = PINSET_PRODUCTION
 
-        self._onewire_pin = Pin('P23')
-        self._sd_cs = Pin('P9')
-        self._flash_pin = Pin('P2')
-        self._mosfet_pin = Pin('P12')
+        if pinset == PINSET_PRODUCTION:
+            _logger.debug("Selecting pins for production unit")
+            self._co2_uart = UART(1, 9600)
+            self._i2c_pins = ('P22', 'P21')
 
-    def select_breadboard_pins(self):
-        _logger.debug("Selecting pins for breadboard unit")
-        self._co2_uart = UART(1, 9600)
-        self._i2c_pins = ('P22', 'P21')
+            self._onewire_pin = Pin('P23')
+            self._sd_cs = Pin('P9')
+            self._flash_pin = Pin('P2')
+            self._mosfet_pin = Pin('P12')
 
-        self._onewire_pin = Pin('G15')
-        self._sd_cs = Pin('P12')
-        self._flash_pin = Pin('P4')
-        self._mosfet_pin = None
+        elif pinset == PINSET_BREADBOARD:
+            _logger.debug("Selecting pins for breadboard unit")
+            self._co2_uart = UART(1, 9600)
+            self._i2c_pins = ('P22', 'P21')
+
+            self._onewire_pin = Pin('G15')
+            self._sd_cs = Pin('P12')
+            self._flash_pin = Pin('P4')
+            self._mosfet_pin = None
 
     def mosfet_pin(self):
         return self._mosfet_pin
@@ -81,6 +92,14 @@ class Co2UnitHw(object):
             onewire_bus = OneWire(self._onewire_pin)
             self._etemp = DS18X20(onewire_bus)
         return self._etemp
+
+    def power_peripherals(self, value=None):
+        mosfet_pin = self.mosfet_pin()
+        if mosfet_pin == None:
+            _logger.debug("No mosfet pin on this build")
+            return value
+        else:
+            return mosfet_pin(value)
 
     def sync_to_most_reliable_rtc(self, max_drift_secs=4):
         irtc = RTC()
