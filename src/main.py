@@ -90,15 +90,16 @@ def simple_autonomous():
 import co2unit_hw
 import co2unit_self_test
 
+#co2unit_self_test._logger.setLevel(logging.DEBUG)
+
 hw = co2unit_hw.Co2UnitHw()
 #hw._select_breadboard_pins()
 hw.mosfet_pin()(True)
-failures = 0
-failures |= co2unit_self_test.quick_check(hw)
-failures |= co2unit_self_test.rtc_sanity_check(hw.ertc())
+co2unit_self_test.quick_check(hw)
+co2unit_self_test.rtc_sanity_check(hw.ertc())
 co2unit_self_test.show_boot_flags()
-failures |= co2unit_self_test.test_lte_ntp(hw.ertc())
-print(failures)
+co2unit_self_test.test_lte_ntp(hw.ertc())
+print(co2unit_self_test.failures)
 
 # TO CONFIGURE
 #
