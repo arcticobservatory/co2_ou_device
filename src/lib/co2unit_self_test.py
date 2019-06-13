@@ -9,18 +9,17 @@ _logger = logging.getLogger("co2unit_self_test")
 FLAG_MOSFET_PIN     = const(1<<0)
 FLAG_SD_CARD        = const(1<<1)
 FLAG_ERTC           = const(1<<2)
-FLAG_FLASH_PIN      = const(1<<3)
-FLAG_CO2            = const(1<<4)
-FLAG_ETEMP          = const(1<<5)
+FLAG_CO2            = const(1<<3)
+FLAG_ETEMP          = const(1<<4)
 
-FLAG_TIME_SOURCE    = const(1<<6)
+FLAG_TIME_SOURCE    = const(1<<5)
 
-FLAG_LTE_FW_API     = const(1<<7)   # If run on factory FW, the LTE API will be missing
-FLAG_LTE_INIT       = const(1<<8)
-FLAG_LTE_ATTACH     = const(1<<9)
-FLAG_LTE_CONNECT    = const(1<<10)
-FLAG_NTP_FETCH      = const(1<<11)
-FLAG_LTE_SHUTDOWN   = const(1<<12)
+FLAG_LTE_FW_API     = const(1<<6)   # If run on factory FW, the LTE API will be missing
+FLAG_LTE_INIT       = const(1<<7)
+FLAG_LTE_ATTACH     = const(1<<8)
+FLAG_LTE_CONNECT    = const(1<<9)
+FLAG_NTP_FETCH      = const(1<<10)
+FLAG_LTE_SHUTDOWN   = const(1<<11)
 
 failures = 0x0
 
@@ -29,7 +28,6 @@ def color_for_flag(flag):
     elif flag==FLAG_MOSFET_PIN     : return 0x0
     elif flag==FLAG_SD_CARD        : return 0x440000
     elif flag==FLAG_ERTC           : return 0x004400
-    elif flag==FLAG_FLASH_PIN      : return 0x004400
     elif flag==FLAG_CO2            : return 0x004400
     elif flag==FLAG_ETEMP          : return 0x004400
 
@@ -91,11 +89,6 @@ def quick_check(hw):
         ertc = hw.ertc()
         time_tuple = ertc.get_time()
         _logger.info("External RTC ok. Current time: %s", time_tuple)
-
-    with CheckStep(FLAG_FLASH_PIN, suppress_exception=True):
-        flash_pin = hw.flash_pin()
-        flash_state = flash_pin()
-        _logger.info("Flash pin state: %s", flash_state)
 
     with CheckStep(FLAG_CO2, suppress_exception=True):
         import explorir

@@ -37,6 +37,14 @@ class Co2UnitHw(object):
         except ValueError:
             pinset = PINSET_PRODUCTION
 
+        # Note: The P2 pin also controls the RGB LED on Pycom devices
+        #
+        # - Once initialized with Pin(), pycom.rgbled() will have no effect
+        # - No exception, just silent failure
+        # - I do not know of an offical way to re-initialize the LED
+        # - Turning the heartbeat on and off again seems to work in the REPL
+        # - I haven't had luck getting it to work in scripts
+
         if pinset == PINSET_PRODUCTION:
             _logger.debug("Selecting pins for production unit")
             self._co2_uart_params = (1, 9600)
@@ -44,7 +52,7 @@ class Co2UnitHw(object):
 
             self._onewire_pin_name = 'P23'
             self._sd_cs_pin_name = 'P9'
-            self._flash_pin_name = 'P2'
+            self._flash_pin_name = 'P2'     # Also used for RGB LED
             self._mosfet_pin_name = 'P12'
 
         elif pinset == PINSET_BREADBOARD:
