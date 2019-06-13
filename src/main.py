@@ -19,4 +19,7 @@ hw.power_peripherals(True)
 co2unit_self_test.quick_check(hw)
 #co2unit_self_test.test_lte_ntp(hw)
 co2unit_self_test.show_boot_flags()
-print("Failure flags: {:016b}".format(co2unit_self_test.failures))
+print("Failure flags: {:#018b}".format(co2unit_self_test.failures))
+
+co2unit_self_test._logger.setLevel(logging.DEBUG)
+co2unit_self_test.display_errors_led()

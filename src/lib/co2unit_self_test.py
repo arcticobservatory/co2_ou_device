@@ -23,7 +23,7 @@ FLAG_LTE_SHUTDOWN   = const(1<<11)
 
 failures = 0x0
 
-def color_for_flag(flag):
+def flag_color(flag):
     if flag==0: return 0x0
     elif flag==FLAG_MOSFET_PIN     : return 0x0
     elif flag==FLAG_SD_CARD        : return 0x440000
@@ -42,6 +42,31 @@ def color_for_flag(flag):
 
     else: return 0x0
 
+def blink_led(color):
+    for _ in range(0,5):
+        pycom.rgbled(color)
+        time.sleep_ms(100)
+        pycom.rgbled(0x0)
+        time.sleep_ms(100)
+
+def display_errors_led(flags = None):
+    global failures
+    flags = flags or failures
+
+    if not flags:
+        blink_led(0x004400)
+
+    else:
+        blink_led(0x440000)
+        for i in range(0,16):
+            flag = 1 << i
+            color = flag_color(flag)
+            if flags & flag and color:
+                pycom.rgbled(color)
+                _logger.debug("showing failure {:#018b}, color {:#08x}".format(flag, color))
+                time.sleep(1)
+    pycom.rgbled(0x0)
+
 class CheckStep(object):
     def __init__(self, flag, suppress_exception=False):
         self.flag = flag
@@ -51,7 +76,7 @@ class CheckStep(object):
         self.extra_args = None
 
     def __enter__(self):
-        pycom.rgbled(color_for_flag(self.flag))
+        pycom.rgbled(flag_color(self.flag))
         _logger.debug("%08x...", self.flag)
         self.start_ticks = time.ticks_ms()
 
