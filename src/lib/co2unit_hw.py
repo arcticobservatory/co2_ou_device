@@ -25,10 +25,12 @@ def pinset_on_boot(pinset):
 
 class Co2UnitHw(object):
     def __init__(self):
+        self._mosfet_pin = None
+        self._sdcard = None
+        self._ertc = None
+        self._flash_pin = None
         self._co2 = None
         self._etemp = None
-        self._ertc = None
-        self._sdcard = None
 
         try:
             pinset = pycom.nvs_get("co2unit_pinset")
@@ -37,25 +39,27 @@ class Co2UnitHw(object):
 
         if pinset == PINSET_PRODUCTION:
             _logger.debug("Selecting pins for production unit")
-            self._co2_uart = UART(1, 9600)
-            self._i2c_pins = ('P22', 'P21')
+            self._co2_uart_params = (1, 9600)
+            self._i2c_pins_names = ('P22', 'P21')
 
-            self._onewire_pin = Pin('P23')
-            self._sd_cs = Pin('P9')
-            self._flash_pin = Pin('P2')
-            self._mosfet_pin = Pin('P12')
+            self._onewire_pin_name = 'P23'
+            self._sd_cs_pin_name = 'P9'
+            self._flash_pin_name = 'P2'
+            self._mosfet_pin_name = 'P12'
 
         elif pinset == PINSET_BREADBOARD:
             _logger.debug("Selecting pins for breadboard unit")
-            self._co2_uart = UART(1, 9600)
-            self._i2c_pins = ('P22', 'P21')
+            self._co2_uart_params = (1, 9600)
+            self._i2c_pins_names = ('P22', 'P21')
 
-            self._onewire_pin = Pin('G15')
-            self._sd_cs = Pin('P12')
-            self._flash_pin = Pin('P4')
-            self._mosfet_pin = None
+            self._onewire_pin_name = 'G15'
+            self._sd_cs_pin_name = 'P12'
+            self._flash_pin_name = 'P4'
+            self._mosfet_pin_name = None
 
     def mosfet_pin(self):
+        if not self._mosfet_pin and self._mosfet_pin_name:
+            self._mosfet_pin = Pin(self._mosfet_pin_name, mode=Pin.OUT)
         return self._mosfet_pin
 
     def sdcard(self):
@@ -63,7 +67,7 @@ class Co2UnitHw(object):
             _logger.debug("Initializing SD card")
             self._spi = SPI(0, mode=SPI.MASTER)
             try:
-                self._sdcard = sdcard.SDCard(self._spi, self._sd_cs)
+                self._sdcard = sdcard.SDCard(self._spi, Pin(self._sd_cs_pin_name))
             except OSError as e:
                 if "no sd card" in str(e).lower():
                     raise NoSdCardError(e)
@@ -74,22 +78,25 @@ class Co2UnitHw(object):
     def ertc(self):
         if not self._ertc:
             _logger.debug("Initializing external RTC")
-            self._ertc = DS3231(0, pins=self._i2c_pins)
+            self._ertc = DS3231(0, pins=self._i2c_pins_names)
         return self._ertc
 
     def flash_pin(self):
+        if not self._flash_pin:
+            self._flash_pin = Pin(self._flash_pin_name)
         return self._flash_pin
 
     def co2(self):
         if not self._co2:
             _logger.debug("Initializing co2 sensor")
-            self._co2 = explorir.ExplorIr(self._co2_uart, scale=10)
+            uart = UART(*self._co2_uart_params)
+            self._co2 = explorir.ExplorIr(uart, scale=10)
         return self._co2
 
     def etemp(self):
         if not self._etemp:
             _logger.debug("Initializing external temp sensor")
-            onewire_bus = OneWire(self._onewire_pin)
+            onewire_bus = OneWire(Pin(self._onewire_pin_name))
             self._etemp = DS18X20(onewire_bus)
         return self._etemp
 

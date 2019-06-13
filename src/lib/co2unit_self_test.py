@@ -1,14 +1,8 @@
 import logging
-import os
 import time
 
-from machine import Pin
-from machine import RTC
-from network import LTE
-import explorir
 import pycom
 
-import time_util
 
 _logger = logging.getLogger("co2unit_self_test")
 
@@ -21,11 +15,12 @@ FLAG_ETEMP          = const(1<<5)
 
 FLAG_TIME_SOURCE    = const(1<<6)
 
-FLAG_LTE_INIT       = const(1<<7)
-FLAG_LTE_ATTACH     = const(1<<8)
-FLAG_LTE_CONNECT    = const(1<<9)
-FLAG_NTP_FETCH      = const(1<<10)
-FLAG_LTE_SHUTDOWN   = const(1<<11)
+FLAG_LTE_FW_API     = const(1<<7)   # If run on factory FW, the LTE API will be missing
+FLAG_LTE_INIT       = const(1<<8)
+FLAG_LTE_ATTACH     = const(1<<9)
+FLAG_LTE_CONNECT    = const(1<<10)
+FLAG_NTP_FETCH      = const(1<<11)
+FLAG_LTE_SHUTDOWN   = const(1<<12)
 
 failures = 0x0
 
@@ -40,6 +35,7 @@ def color_for_flag(flag):
 
     elif flag==FLAG_TIME_SOURCE    : return 0x442200
 
+    elif flag==FLAG_LTE_FW_API     : return 0x000011
     elif flag==FLAG_LTE_INIT       : return 0x000022
     elif flag==FLAG_LTE_ATTACH     : return 0x002222
     elif flag==FLAG_LTE_CONNECT    : return 0x004422
@@ -75,14 +71,15 @@ class CheckStep(object):
             _logger.debug("%08x OK (%d ms)", self.flag, elapsed)
 
 def quick_check(hw):
+
     _logger.info("Starting hardware quick check")
 
     with CheckStep(FLAG_MOSFET_PIN, suppress_exception=True):
         mosfet_pin = hw.mosfet_pin()
-        mosfet_pin.mode(Pin.OUT)
         _logger.info("Mosfet pin state: %s", mosfet_pin())
 
     with CheckStep(FLAG_SD_CARD, suppress_exception=True):
+        import os
         sdcard = hw.sdcard()
         mountpoint = "/co2_sd_card_test"
         os.mount(sdcard, mountpoint)
@@ -101,6 +98,7 @@ def quick_check(hw):
         _logger.info("Flash pin state: %s", flash_state)
 
     with CheckStep(FLAG_CO2, suppress_exception=True):
+        import explorir
         co2 = hw.co2()
         co2.set_mode(explorir.EXPLORIR_MODE_POLLING)
         reading = co2.read_co2()
@@ -126,12 +124,14 @@ def quick_check(hw):
     return failures
 
 def show_boot_flags():
-    _logger.info("pycom.lte_modem_en_on_boot(): %s", pycom.lte_modem_en_on_boot())
     _logger.info("pycom.wifi_on_boot():         %s", pycom.wifi_on_boot())
-    _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
-    _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
+    with CheckStep(FLAG_LTE_FW_API, suppress_exception=True):
+        _logger.info("pycom.lte_modem_en_on_boot(): %s", pycom.lte_modem_en_on_boot())
+        _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
+        _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
 
 def test_lte_ntp(hw, max_drift_secs=4):
+
     global failures
     _logger.info("Testing LTE connectivity...")
 
@@ -139,6 +139,9 @@ def test_lte_ntp(hw, max_drift_secs=4):
         _logger.warning("%s. %s: %s", desc, type(e).__name__, e)
 
     try:
+        with CheckStep(FLAG_LTE_FW_API):
+            from network import LTE
+
         start_ticks = time.ticks_ms()
         with CheckStep(FLAG_LTE_INIT):
             lte = LTE()
@@ -169,6 +172,9 @@ def test_lte_ntp(hw, max_drift_secs=4):
             _logger.info("LTE connect ok (%d ms). Getting time with NTP...", elapsed)
 
         with CheckStep(FLAG_NTP_FETCH, suppress_exception=True):
+            from machine import RTC
+            import time_util
+
             start_ticks = time.ticks_ms()
             irtc = RTC()
             ts = time_util.fetch_ntp_time()
@@ -179,7 +185,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 ntp_tuple = time.gmtime(ts)
                 irtc = RTC()
                 irtc.init(ntp_tuple)
-                hw.ertc.save_time()
+                hw.ertc().save_time()
                 _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
             _logger.info("Got time with NTP (%d ms). Shutting down...", elapsed)
 
