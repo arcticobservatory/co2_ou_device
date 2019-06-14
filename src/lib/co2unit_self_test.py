@@ -99,7 +99,8 @@ def quick_check(hw):
 
     with CheckStep(FLAG_MOSFET_PIN, suppress_exception=True):
         mosfet_pin = hw.mosfet_pin()
-        _logger.info("Mosfet pin state: %s", mosfet_pin())
+        if mosfet_pin:
+            _logger.info("Mosfet pin state: %s", mosfet_pin())
 
     with CheckStep(FLAG_SD_CARD, suppress_exception=True):
         import os
