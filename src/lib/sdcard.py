@@ -1,41 +1,38 @@
-# Driver for SD cards using SPI bus
+# Driver for SD card access over SPI
 #
-# Adapted from example code on the the Pycom forums
-# https://forum.pycom.io/topic/2064/external-sd-card/20
+# Copied unmodified from the pycom-micropython-sigfox repository
+# https://github.com/pycom/pycom-micropython-sigfox/blob/master/drivers/sdcard/sdcard.py
 #
-# That example appears to be a modified version of the sdcard driver from the MicroPython
-# source code at revision 55f33240f (MIT Licensed).
-# https://github.com/micropython/micropython/blob/55f33240f/drivers/sdcard/sdcard.py
+# Although this file is present in the Pycom firmware sources, it is not
+# available for import in the firmware on the FiPy. So, we have to put a copy
+# in lib/
 #
-# The key changes are that this version uses named parameters instead of
-# positional parameters when calling SPI read methods. For example:
+# The original file is released under the Pycom license v2.2,
+# which states that the file can be used as if under GPLv3 or later,
+# or that it can be unsed without publishing source code if it is used unmodified.
+# https://github.com/pycom/pycom-libraries/tree/master/license
 #
-#    -        self.spi.read(1, 0xff) # ignore stuff byte
-#    +        self.spi.read(1, write=0xff) # ignore stuff byte
-#
-# The Pycom firmware's SPI driver does not accept the parameter without the
-# parameter name, resulting in "TypeError: extra positional arguments given"
-#
-# This restriction confirmed with firmware as recent as:
-#   Pycom MicroPython 1.18.2.r7 [v1.8.6-849-df9f237] on 2019-05-14
-#
-# Further changes to the forum example code by Mike Murphy (michael.j.murphy@uit.no):
-#
-# - Added the "write=" parameter syntax to several other calls
 
 """
-MicroPython driver for SD cards using SPI bus.
+Micro Python driver for SD cards using SPI bus.
 
 Requires an SPI bus and a CS pin.  Provides readblocks and writeblocks
 methods so the device can be mounted as a filesystem.
 
-Example usage on xxPy:
+Example usage on pyboard:
+
+    import pyb, sdcard, os
+    sd = sdcard.SDCard(pyb.SPI(1), pyb.Pin.board.X5)
+    pyb.mount(sd, '/sd2')
+    os.listdir('/')
+
+Example usage on ESP8266:
 
     import machine, sdcard, os
-    sd = sdcard.SDCard(machine.SPI(0), machine.Pin("P9"))
-    os.mount(sd, '/sd2')
-    os.listdir('/sd2')
-
+    sd = sdcard.SDCard(machine.SPI(0), machine.Pin(15))
+    os.umount()
+    os.VfsFat(sd, "")
+    os.listdir()
 
 """
 
@@ -72,8 +69,14 @@ class SDCard:
         self.init_card()
 
     def init_spi(self, baudrate):
-        master = self.spi.MASTER
-        self.spi.init(master, baudrate=baudrate, phase=0, polarity=0)
+        try:
+            master = self.spi.MASTER
+        except AttributeError:
+            # on ESP8266
+            self.spi.init(baudrate=baudrate, phase=0, polarity=0)
+        else:
+            # on pyboard
+            self.spi.init(master, baudrate=baudrate, phase=0, polarity=0)
 
     def init_card(self):
         # init CS pin
@@ -118,8 +121,7 @@ class SDCard:
             raise OSError("can't set 512 block size")
 
         # set to high data rate now that it's initialised
-        #self.init_spi(100000)
-        #self.init_spi(40000000)
+        self.init_spi(1320000)
 
     def init_card_v1(self):
         for i in range(_CMD_TIMEOUT):
@@ -143,7 +145,7 @@ class SDCard:
         raise OSError("timeout waiting for v2 card")
 
     def cmd(self, cmd, arg, crc, final=0, release=True):
-        self.cs(0)
+        self.cs.low()
 
         # create and send the command
         buf = self.cmdbuf
@@ -155,40 +157,40 @@ class SDCard:
         buf[5] = crc
         self.spi.write(buf)
 
-        # wait for the response (response[7] == 0)
+        # wait for the repsonse (response[7] == 0)
         for i in range(_CMD_TIMEOUT):
-            response = self.spi.read(1, write=0xff)[0]
+            response = self.spi.read(1, 0xff)[0]
             if not (response & 0x80):
                 # this could be a big-endian integer that we are getting here
                 for j in range(final):
                     self.spi.write(b'\xff')
                 if release:
-                    self.cs(1)
+                    self.cs.high()
                     self.spi.write(b'\xff')
                 return response
 
         # timeout
-        self.cs(1)
+        self.cs.high()
         self.spi.write(b'\xff')
         return -1
 
     def cmd_nodata(self, cmd):
         self.spi.write(cmd)
-        self.spi.read(1, write=0xff) # ignore stuff byte
+        self.spi.read(1, 0xff) # ignore stuff byte
         for _ in range(_CMD_TIMEOUT):
-            if self.spi.read(1, write=0xff)[0] == 0xff:
-                self.cs(1)
+            if self.spi.read(1, 0xff)[0] == 0xff:
+                self.cs.high()
                 self.spi.write(b'\xff')
                 return 0    # OK
-        self.cs(1)
+        self.cs.high()
         self.spi.write(b'\xff')
         return 1 # timeout
 
     def readinto(self, buf):
-        self.cs(0)
+        self.cs.low()
 
         # read until start byte (0xff)
-        while self.spi.read(1, write=0xff)[0] != 0xfe:
+        while self.spi.read(1, 0xff)[0] != 0xfe:
             pass
 
         # read data
@@ -199,40 +201,40 @@ class SDCard:
         self.spi.write(b'\xff')
         self.spi.write(b'\xff')
 
-        self.cs(1)
+        self.cs.high()
         self.spi.write(b'\xff')
 
     def write(self, token, buf):
-        self.cs(0)
+        self.cs.low()
 
         # send: start of block, data, checksum
-        self.spi.read(1, write=token)
+        self.spi.read(1, token)
         self.spi.write(buf)
         self.spi.write(b'\xff')
         self.spi.write(b'\xff')
 
         # check the response
-        if (self.spi.read(1, write=0xff)[0] & 0x1f) != 0x05:
-            self.cs(1)
+        if (self.spi.read(1, 0xff)[0] & 0x1f) != 0x05:
+            self.cs.high()
             self.spi.write(b'\xff')
             return
 
         # wait for write to finish
-        while self.spi.read(1, write=0xff)[0] == 0:
+        while self.spi.read(1, 0xff)[0] == 0:
             pass
 
-        self.cs(1)
+        self.cs.high()
         self.spi.write(b'\xff')
 
     def write_token(self, token):
-        self.cs(0)
-        self.spi.read(1, write=token)
+        self.cs.low()
+        self.spi.read(1, token)
         self.spi.write(b'\xff')
         # wait for write to finish
-        while self.spi.read(1, write=0xff)[0] == 0x00:
+        while self.spi.read(1, 0xff)[0] == 0x00:
             pass
 
-        self.cs(1)
+        self.cs.high()
         self.spi.write(b'\xff')
 
     def count(self):

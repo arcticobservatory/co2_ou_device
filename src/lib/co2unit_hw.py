@@ -73,9 +73,10 @@ class Co2UnitHw(object):
     def sdcard(self):
         if not self._sdcard:
             _logger.debug("Initializing SD card")
-            self._spi = SPI(0, mode=SPI.MASTER)
+            self._spi = SpiWrapper()
+            self._spi.init(SPI.MASTER)
             try:
-                self._sdcard = sdcard.SDCard(self._spi, Pin(self._sd_cs_pin_name))
+                self._sdcard = SdCardWrapper(self._spi, PinWrapper(self._sd_cs_pin_name))
             except OSError as e:
                 if "no sd card" in str(e).lower():
                     raise NoSdCardError(e)
@@ -144,3 +145,81 @@ class Co2UnitHw(object):
             ertc.save_time()
         else:
             raise Exception("Both RTCs reset; no reliable time source; %s" % itime)
+
+class SdCardWrapper(sdcard.SDCard):
+    """
+    Wrap the readblocks method so that it only reads one block at a time
+
+    This avoids a nasty error with file.readinto(buffer).
+
+    If you try to read into a buffer larger than one block (512 bytes),
+    the SDCard driver will use SPI CMD18 to try to read multiple blocks.
+
+    For some reason, on our hardware, this command will fail the second time
+    you try to use it, and it will put the SD card into an error state.
+
+    So this class replaces the readblocks method with one that makes multiple
+    calls to the underlying readblocks method, so that the driver only ever
+    uses SPI CMD17 to read one block at a time.
+    """
+
+    def readblocks(self, blocknum, buf):
+
+        nblocks, err = divmod(len(buf), 512)
+        if err:
+            _logger.error("Bad buffer size %d. Must be a multiple of 512", len(buf))
+            return 1
+
+        offset = 0
+        mv = memoryview(buf)
+        while nblocks:
+            result = super().readblocks(blocknum, mv[offset : offset + 512])
+            if result!=0:
+                _logger.error("Error reading block %d. super().readblocks returned %d", blocknum, result)
+                return 1
+
+            blocknum += 512
+            offset += 512
+            nblocks -= 1
+
+        return 0
+
+class SpiWrapper(SPI):
+    """
+    Wrap the SPI driver for compatibility with the SDCard driver
+
+    The SDCard driver calls SPI read commands with two positional arguments:
+
+        self.spi.read(1, 0xff)
+
+    The Pycom firmware's SPI class does not support that. It expects the call
+    to use keyword arguments:
+
+        self.spi.read(1, write=0xff)
+
+    This class translates the SDCard calls to the keyword call that the SPI
+    class understands.
+    """
+
+    def read(self, nbytes, token):
+        return super().read(nbytes, write=token)
+
+    def readinto(self, buf, token):
+        return super().readinto(buf, write=token)
+
+class PinWrapper(Pin):
+    """
+    Wrap the Pin class for compatibility with the SDCard driver
+
+    The SDCard driver sets pins with methods .high() and .low().
+
+    The Pycom firmware's Pin class does not support this. The object itself is
+    callable and accepts a value. This class translates the SDCard calling
+    style to one the Pin class understands.
+    """
+
+    def high(self):
+        return self(1)
+
+    def low(self):
+        return self(0)

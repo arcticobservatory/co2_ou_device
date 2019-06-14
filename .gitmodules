@@ -10,3 +10,6 @@
 [submodule "thirdparty/micropython-lib"]
 	path = thirdparty/micropython-lib
 	url = https://github.com/micropython/micropython-lib.git
+[submodule "thirdparty/pycom-micropython-sigfox"]
+	path = thirdparty/pycom-micropython-sigfox
+	url = https://github.com/pycom/pycom-micropython-sigfox.git
