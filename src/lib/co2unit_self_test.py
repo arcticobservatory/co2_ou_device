@@ -8,11 +8,12 @@ _logger = logging.getLogger("co2unit_self_test")
 
 FLAG_MOSFET_PIN     = const(1<<0)
 FLAG_SD_CARD        = const(1<<1)
-FLAG_ERTC           = const(1<<2)
-FLAG_CO2            = const(1<<3)
-FLAG_ETEMP          = const(1<<4)
 
-FLAG_TIME_SOURCE    = const(1<<5)
+FLAG_ERTC           = const(1<<2)
+FLAG_TIME_SOURCE    = const(1<<3)
+
+FLAG_CO2            = const(1<<4)
+FLAG_ETEMP          = const(1<<5)
 
 FLAG_LTE_FW_API     = const(1<<6)   # If run on factory FW, the LTE API will be missing
 FLAG_LTE_INIT       = const(1<<7)
@@ -21,17 +22,20 @@ FLAG_LTE_CONNECT    = const(1<<9)
 FLAG_NTP_FETCH      = const(1<<10)
 FLAG_LTE_SHUTDOWN   = const(1<<11)
 
+FLAG_MAX_SHIFT      = const(16)
+
 failures = 0x0
 
 def flag_color(flag):
     if flag==0: return 0x0
     elif flag==FLAG_MOSFET_PIN     : return 0x0
     elif flag==FLAG_SD_CARD        : return 0x440000
-    elif flag==FLAG_ERTC           : return 0x004400
-    elif flag==FLAG_CO2            : return 0x004400
-    elif flag==FLAG_ETEMP          : return 0x004400
 
+    elif flag==FLAG_ERTC           : return 0x441100
     elif flag==FLAG_TIME_SOURCE    : return 0x442200
+
+    elif flag==FLAG_CO2            : return 0x004400
+    elif flag==FLAG_ETEMP          : return 0x224400
 
     elif flag==FLAG_LTE_FW_API     : return 0x000011
     elif flag==FLAG_LTE_INIT       : return 0x000022
@@ -42,12 +46,13 @@ def flag_color(flag):
 
     else: return 0x0
 
-def blink_led(color):
-    for _ in range(0,5):
+def blink_led(color, on_ms=100, off_ms=100, total_ms=1000):
+    loops = total_ms // (on_ms+off_ms)
+    for _ in range(0,loops):
         pycom.rgbled(color)
-        time.sleep_ms(100)
+        time.sleep_ms(on_ms)
         pycom.rgbled(0x0)
-        time.sleep_ms(100)
+        time.sleep_ms(off_ms)
 
 def display_errors_led(flags = None):
     global failures
@@ -57,14 +62,19 @@ def display_errors_led(flags = None):
         blink_led(0x004400)
 
     else:
-        blink_led(0x440000)
-        for i in range(0,16):
-            flag = 1 << i
-            color = flag_color(flag)
-            if flags & flag and color:
-                pycom.rgbled(color)
-                _logger.debug("showing failure {:#018b}, color {:#08x}".format(flag, color))
-                time.sleep(1)
+        for i in range(0,3):
+            _logger.debug("failure loop %d", i)
+            blink_led(0x440000)
+            time.sleep_ms(200)
+            for i in range(0,FLAG_MAX_SHIFT):
+                flag = 1 << i
+                color = flag_color(flag)
+                if flags & flag and color:
+                    pycom.rgbled(color)
+                    _logger.debug("showing failure {:#018b}, color {:#08x}".format(flag, color))
+                    time.sleep_ms(1000)
+            pycom.rgbled(0x0)
+            time.sleep_ms(200)
     pycom.rgbled(0x0)
 
 class CheckStep(object):
@@ -116,6 +126,9 @@ def quick_check(hw):
         time_tuple = ertc.get_time()
         _logger.info("External RTC ok. Current time: %s", time_tuple)
 
+    with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
+        hw.sync_to_most_reliable_rtc()
+
     with CheckStep(FLAG_CO2, suppress_exception=True):
         import explorir
         co2 = hw.co2()
@@ -135,9 +148,6 @@ def quick_check(hw):
             if elapsed > 1000:
                 raise TimeoutError("Timeout reading external temp sensor after %d ms", elapsed)
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
-
-    with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
-        hw.sync_to_most_reliable_rtc()
 
     global failures
     return failures
@@ -206,6 +216,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 irtc.init(ntp_tuple)
                 hw.ertc().save_time()
                 _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
+            failures &= ~FLAG_TIME_SOURCE   # Clear FLAG_TIME_SOURCE if previously set
             _logger.info("Got time with NTP (%d ms). Shutting down...", elapsed)
 
         with CheckStep(FLAG_LTE_SHUTDOWN):
