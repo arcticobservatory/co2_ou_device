@@ -144,7 +144,7 @@ class Co2UnitHw(object):
             _logger.info("External RTC reset; setting from internal %s", itime)
             ertc.save_time()
         else:
-            raise Exception("Both RTCs reset; no reliable time source; %s" % itime)
+            raise Exception("Both RTCs reset; no reliable time source; %s" % (itime,))
 
 class SdCardWrapper(sdcard.SDCard):
     """
