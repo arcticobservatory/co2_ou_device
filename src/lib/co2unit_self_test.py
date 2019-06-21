@@ -46,6 +46,26 @@ def flag_color(flag):
 
     else: return 0x0
 
+def flag_name(flag):
+    if flag==0                     : return "OK"
+    elif flag==FLAG_MOSFET_PIN     : return "FLAG_MOSFET_PIN"
+    elif flag==FLAG_SD_CARD        : return "FLAG_SD_CARD"
+
+    elif flag==FLAG_ERTC           : return "FLAG_ERTC"
+    elif flag==FLAG_TIME_SOURCE    : return "FLAG_TIME_SOURCE"
+
+    elif flag==FLAG_CO2            : return "FLAG_CO2"
+    elif flag==FLAG_ETEMP          : return "FLAG_ETEMP"
+
+    elif flag==FLAG_LTE_FW_API     : return "FLAG_LTE_FW_API"
+    elif flag==FLAG_LTE_INIT       : return "FLAG_LTE_INIT"
+    elif flag==FLAG_LTE_ATTACH     : return "FLAG_LTE_ATTACH"
+    elif flag==FLAG_LTE_CONNECT    : return "FLAG_LTE_CONNECT"
+    elif flag==FLAG_NTP_FETCH      : return "FLAG_NTP_FETCH"
+    elif flag==FLAG_LTE_SHUTDOWN   : return "FLAG_LTE_SHUTDOWN"
+
+    else: raise Exception("Unknown flag {:#018b}".format(flag))
+
 def blink_led(color, on_ms=100, off_ms=100, total_ms=1000):
     loops = total_ms // (on_ms+off_ms)
     for _ in range(0,loops):
@@ -71,7 +91,7 @@ def display_errors_led(flags = None):
                 color = flag_color(flag)
                 if flags & flag and color:
                     pycom.rgbled(color)
-                    _logger.debug("showing failure {:#018b}, color {:#08x}".format(flag, color))
+                    _logger.debug("showing failure {:#018b}, color {:#08x}, {}".format(flag, color, flag_name(flag)))
                     time.sleep_ms(1000)
             pycom.rgbled(0x0)
             time.sleep_ms(200)
@@ -80,6 +100,8 @@ def display_errors_led(flags = None):
 class CheckStep(object):
     def __init__(self, flag, suppress_exception=False):
         self.flag = flag
+        self.flag_bin = "{flag:#0{width}b}".format(flag=flag, width=FLAG_MAX_SHIFT+2)
+        self.flag_name = "{:20}".format(flag_name(flag))
         self.suppress_exception = suppress_exception
         self.start_ticks = None
         self.extra_fmt_str = None
@@ -87,7 +109,7 @@ class CheckStep(object):
 
     def __enter__(self):
         pycom.rgbled(flag_color(self.flag))
-        _logger.debug("%08x...", self.flag)
+        _logger.debug("%s %s ...", self.flag_bin, self.flag_name)
         self.start_ticks = time.ticks_ms()
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -96,12 +118,12 @@ class CheckStep(object):
         pycom.rgbled(0x0)
         if exc_type:
             failures |= self.flag
-            _logger.warning("%08x failed (%d ms). %s: %s", self.flag, elapsed, exc_type, exc_value)
+            _logger.warning(" %s %s failed (%d ms). %s: %s", self.flag_bin, self.flag_name, elapsed, exc_type, exc_value)
             if self.suppress_exception:
                 return True
         else:
             failures &= ~self.flag
-            _logger.debug("%08x OK (%d ms)", self.flag, elapsed)
+            _logger.debug("%s %s OK (%d ms)", self.flag_bin, self.flag_name, elapsed)
 
 def quick_check(hw):
 
