@@ -1,10 +1,9 @@
 
-class SetupIncompleteError(Exception): pass
-
 try:
     # Configure logging
     import logging
     logging.basicConfig(level=logging.INFO)
+    _logger = logging.getLogger("main")
 
     import machine
     reset_cause = machine.reset_cause()
@@ -17,7 +16,7 @@ try:
     # SOFT_RESET: ctrl+D in REPL
 
     if reset_cause in [machine.PWRON_RESET, machine.SOFT_RESET]:
-        logging.info("Manual reset (0x%02x). Starting self-test and full boot sequence...", reset_cause)
+        _logger.info("Manual reset (0x%02x). Starting self-test and full boot sequence...", reset_cause)
 
         # Initialize hardware
         # --------------------------------------------------
@@ -44,23 +43,15 @@ try:
 
         # First, the quick hardware check
         post.quick_check(hw)
-        logging.info("Failures after quick hardware check: {:#018b}".format(post.failures))
+        post.show_boot_flags()
+        _logger.info("Failures after quick hardware check: {:#018b}".format(post.failures))
         post.display_errors_led()
-
-        # Freeze with light on for fatal errors that require human assistance
-        for flag in post.SETUP_INCOMPLETE_FLAGS:
-            if post.failures & flag:
-                pycom.rgbled(post.flag_color(flag))
-                raise SetupIncompleteError("Fatal hardware or firmware error: %s" % post.flag_name(flag))
 
         # Then the LTE check
         post.test_lte_ntp(hw)
         post.show_boot_flags()
-        logging.info("Failures after LTE test: {:#018b}".format(post.failures))
+        _logger.info("Failures after LTE test: {:#018b}".format(post.failures))
         post.display_errors_led()
-
-        # Do first-time persistent setup
-        # --------------------------------------------------
 
         # Turn off all boot options to save power
         pycom.wifi_on_boot(False)
@@ -69,18 +60,13 @@ try:
         pycom.heartbeat_on_boot(False)
 
     elif reset_cause == machine.DEEPSLEEP_RESET:
-        logging.info("Reset cause: DEEPSLEEP_RESET (0x%02x)", reset_cause)
+        _logger.info("Reset cause: DEEPSLEEP_RESET (0x%02x)", reset_cause)
 
     elif reset_cause == machine.WDT_RESET:
-        logging.info("Reset cause: WDT_RESET (0x%02x)", reset_cause)
+        _logger.info("Reset cause: WDT_RESET (0x%02x)", reset_cause)
 
     else:
-        logging.info("Unexpected reset cause (0x%02x)", reset_cause)
-
-except SetupIncompleteError as e:
-    # These errors indicate that manual setup was not completed.
-    # Re-raise to interrupt operation to call for manual intervention.
-    raise e
+        _logger.info("Unexpected reset cause (0x%02x)", reset_cause)
 
 finally:
     # TODO: Catch any exception and go back to sleep

@@ -84,6 +84,7 @@ def display_errors_led(flags = None):
         blink_led(0x004400)
 
     else:
+        # Blink to show all errors
         for i in range(0,3):
             _logger.debug("failure loop %d", i)
             blink_led(0x440000)
@@ -97,6 +98,15 @@ def display_errors_led(flags = None):
                     time.sleep_ms(1000)
             pycom.rgbled(0x0)
             time.sleep_ms(200)
+
+        # For fatal errors, freeze with light on for most prominent error
+        for flag in SETUP_INCOMPLETE_FLAGS:
+            if failures & flag:
+                _logger.error("Hardware/firmware failure requires human intervention: %s", flag_name(flag))
+                pycom.rgbled(flag_color(flag))
+                for _ in range(0, 10): time.sleep_ms(1000)
+                break
+
     pycom.rgbled(0x0)
 
 class CheckStep(object):
