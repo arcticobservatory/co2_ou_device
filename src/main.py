@@ -15,7 +15,7 @@ try:
     # Special testing zone
     # --------------------------------------------------
     #next_state_override = co2unit_main.STATE_REPL
-    next_state_override = co2unit_main.STATE_MEASURE
+    #next_state_override = co2unit_main.STATE_MEASURE
     # --------------------------------------------------
 
     co2unit_main.run(hw, next_state_override)

@@ -1,6 +1,8 @@
 from machine import Timer
 import explorir
+import fileutil
 import logging
+import os
 import time
 
 _logger = logging.getLogger("co2unit_measure")
@@ -98,14 +100,9 @@ def read_sensors(hw):
             }
     return reading
 
-def store_reading(reading, reading_data_dir):
-    _logger.debug("Ensuring observation dir exists %s", reading_data_dir)
-    import fileutil
-    import os
-    created_dirs = fileutil.mkdirs(reading_data_dir)
-    if _logger.isEnabledFor(logging.DEBUG):
-        _logger.debug("ls %s: %s", reading_data_dir, os.listdir(reading_data_dir))
+READING_FILE_SIZE_CUTOFF = const(100 * 1000)
 
+def reading_to_tsv_row(reading):
     (YY, MM, DD, hh, mm, ss, _, _) = reading["rtime"]
     co2s = reading["co2"]
     co2s = [str(co2) for co2 in co2s]
@@ -117,15 +114,63 @@ def store_reading(reading, reading_data_dir):
             "co2s": co2s,
             }
     row = "{date}\t{time}\t{etemp}\t{co2s}".format(**row_data)
+    return row
+
+def choose_readings_file(reading_data_dir):
+    _logger.debug("Ensuring observation dir exists %s", reading_data_dir)
+    created_dirs = fileutil.mkdirs(reading_data_dir)
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug("ls %s: %s", reading_data_dir, os.listdir(reading_data_dir))
+
+    # Store data in sequential files, in case RTC gets messed up.
+    # Then we might be able to guess the times by the sequence of wrong times.
+
+    os.chdir(reading_data_dir)
+    files = os.listdir()
+    files.sort()
+
+    FILE_PREFIX = "readings-"
+    FILE_SUFFIX = ".tsv"
+    def make_filename(file_index):
+        return "%s%04d%s" % (FILE_PREFIX, file_index, FILE_SUFFIX)
+
+    # Work backwards in listing, looking for filenames that fit the pattern
+    readings_file = None
+    while files:
+        last_file = files.pop()
+        if not last_file.startswith(FILE_PREFIX) or not last_file.endswith(FILE_SUFFIX):
+            _logger.debug("%20s : Skipping non-reading file", last_file)
+            continue
+
+        stat = os.stat(last_file)
+        file_size = stat[fileutil.STAT_SIZE_INDEX]
+
+        if file_size < READING_FILE_SIZE_CUTOFF:
+            _logger.debug("%20s : using current readings file...", last_file)
+            readings_file = last_file
+        else:
+            file_index = last_file[len(FILE_PREFIX): -len(FILE_SUFFIX)]
+            file_index = int(file_index)
+            readings_file = make_filename(file_index + 1)
+            _logger.info(" %20s : file over size threshold", last_file)
+            _logger.info(" %20s : beginning new file", readings_file)
+        break
+
+    if not readings_file:
+        readings_file = make_filename(0)
+        _logger.info(" %20s : no readings found. Starting fresh", readings_file)
+
+    return readings_file
+
+def store_reading(reading, reading_data_dir):
+    row = reading_to_tsv_row(reading)
     _logger.debug("Data row: %s", row)
     _logger.debug("Data row: %s bytes", len(row) + 1)
 
-    os.chdir(reading_data_dir)
-    filename = "{:04}-{:02}.tsv".format(YY, MM)
-
-    _logger.debug("Writing data to %s/%s ...", reading_data_dir, filename)
-    with open(filename, "at") as f:
+    readings_file = choose_readings_file(reading_data_dir)
+    _logger.debug("Writing data to %s/%s ...", reading_data_dir, readings_file)
+    with open(readings_file, "at") as f:
         f.write(row)
         f.write("\n")
-    _logger.info("Wrote row to %s/%s: %s\t", reading_data_dir, filename, row)
-    return (filename, row)
+    _logger.info("Wrote row to %s/%s: %s\t", reading_data_dir, readings_file, row)
+    return (readings_file, row)

@@ -4,6 +4,8 @@ import logging
 
 _logger = logging.getLogger("fileutil")
 
+STAT_SIZE_INDEX = 6
+
 def mkdirs(path):
     pathparts = path.split("/")
 
