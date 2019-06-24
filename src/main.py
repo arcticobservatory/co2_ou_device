@@ -19,41 +19,54 @@ try:
     if reset_cause in [machine.PWRON_RESET, machine.SOFT_RESET]:
         logging.info("Manual reset (0x%02x). Starting self-test and full boot sequence...", reset_cause)
 
+        # Initialize hardware
+        # --------------------------------------------------
+
         import co2unit_hw
-        #co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_BREADBOARD)
-        #co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_PRODUCTION)
         hw = co2unit_hw.Co2UnitHw()
         hw.power_peripherals(True)
+
+        # If running on the breadboard unit or switching units,
+        #   remember to set pinset from REPL...
+        # co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_BREADBOARD)
+        # co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_PRODUCTION)
 
         # Do self-test
         # --------------------------------------------------
 
-        # Make sure heartbeat is off, because we're going to use the LED
-        import pycom
-        pycom.heartbeat(False)
-
+        import time
         import co2unit_self_test as post
 
-        post.quick_check(hw)
-        # If the only failure is that the time source is missing, connect to NTP
-        if post.failures == post.FLAG_TIME_SOURCE:
-            post.test_lte_ntp(hw)
-        post.show_boot_flags()
+        # Reset heartbeat in initialize RGB LED, for test feedback
+        import pycom
+        pycom.heartbeat(True)
+        pycom.heartbeat(False)
 
-        logging.info("Self-test failure flags: {:#018b}".format(post.failures))
+        # First, the quick hardware check
+        post.quick_check(hw)
+        logging.info("Failures after quick hardware check: {:#018b}".format(post.failures))
         post.display_errors_led()
 
-        if post.failures & post.FLAG_LTE_FW_API:
-            pycom.rgbled(post.flag_color(post.FLAG_LTE_FW_API))
-            raise SetupIncompleteError("Missing LTE API. Need to upgrade Pycom firmware.")
+        # Freeze with light on for fatal errors that require human assistance
+        for flag in post.SETUP_INCOMPLETE_FLAGS:
+            if post.failures & flag:
+                pycom.rgbled(post.flag_color(flag))
+                raise SetupIncompleteError("Fatal hardware or firmware error: %s" % post.flag_name(flag))
+
+        # Then the LTE check
+        post.test_lte_ntp(hw)
+        post.show_boot_flags()
+        logging.info("Failures after LTE test: {:#018b}".format(post.failures))
+        post.display_errors_led()
 
         # Do first-time persistent setup
         # --------------------------------------------------
 
+        # Turn off all boot options to save power
         pycom.wifi_on_boot(False)
         pycom.lte_modem_en_on_boot(False)
         pycom.wdt_on_boot(False)
-        pycom.heartbeat_on_boot(True)
+        pycom.heartbeat_on_boot(False)
 
     elif reset_cause == machine.DEEPSLEEP_RESET:
         logging.info("Reset cause: DEEPSLEEP_RESET (0x%02x)", reset_cause)

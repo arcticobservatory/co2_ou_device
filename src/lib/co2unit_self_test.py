@@ -24,6 +24,8 @@ FLAG_LTE_SHUTDOWN   = const(1<<11)
 
 FLAG_MAX_SHIFT      = const(16)
 
+SETUP_INCOMPLETE_FLAGS = [FLAG_MOSFET_PIN, FLAG_SD_CARD, FLAG_ERTC, FLAG_CO2, FLAG_ETEMP, FLAG_LTE_FW_API]
+
 failures = 0x0
 
 def flag_color(flag):
