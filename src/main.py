@@ -9,6 +9,8 @@ try:
     reset_cause = machine.reset_cause()
     wake_reason = machine.wake_reason()
 
+    import time
+
     # Specific reset causes:
     # PWRON_RESET: fresh power on, reset button
     # DEEPSLEEP_RESET: waking from deep sleep
@@ -19,8 +21,6 @@ try:
         _logger.info("Manual reset (0x%02x). Starting self-test and full boot sequence...", reset_cause)
 
         # Initialize hardware
-        # --------------------------------------------------
-
         import co2unit_hw
         hw = co2unit_hw.Co2UnitHw()
         hw.power_peripherals(True)
@@ -30,28 +30,14 @@ try:
         # co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_BREADBOARD)
         # co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_PRODUCTION)
 
-        # Do self-test
-        # --------------------------------------------------
-
-        import time
-        import co2unit_self_test as post
-
-        # Reset heartbeat in initialize RGB LED, for test feedback
+        # Reset heartbeat to initialize RGB LED, for test feedback
         import pycom
         pycom.heartbeat(True)
         pycom.heartbeat(False)
 
-        # First, the quick hardware check
-        post.quick_check(hw)
-        post.show_boot_flags()
-        _logger.info("Failures after quick hardware check: {:#018b}".format(post.failures))
-        post.display_errors_led()
-
-        # Then the LTE check
-        post.test_lte_ntp(hw)
-        post.show_boot_flags()
-        _logger.info("Failures after LTE test: {:#018b}".format(post.failures))
-        post.display_errors_led()
+        # Do self-test
+        import co2unit_self_test
+        co2unit_self_test.full_self_test(hw)
 
         # Turn off all boot options to save power
         pycom.wifi_on_boot(False)

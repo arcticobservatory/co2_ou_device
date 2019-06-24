@@ -266,3 +266,16 @@ def test_lte_ntp(hw, max_drift_secs=4):
         pass
 
     return failures
+
+def full_self_test(hw):
+    # First, the quick hardware check
+    quick_check(hw)
+    show_boot_flags()
+    _logger.info("Failures after quick hardware check: {:#018b}".format(failures))
+    display_errors_led()
+
+    # Then the LTE check
+    test_lte_ntp(hw)
+    show_boot_flags()
+    _logger.info("Failures after LTE test: {:#018b}".format(failures))
+    display_errors_led()
