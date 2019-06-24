@@ -4,7 +4,6 @@ import logging
 import time
 
 _logger = logging.getLogger("co2unit_measure")
-_logger.setLevel(logging.DEBUG)
 
 def read_sensors(hw):
     rtime = time.gmtime()

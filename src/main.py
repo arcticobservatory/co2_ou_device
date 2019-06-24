@@ -22,26 +22,22 @@ try:
 
     # Special testing zone
     # --------------------------------------------------
-    while True:
-        hw.power_peripherals(True)
-
-        import co2unit_main
-        next_state = co2unit_main.STATE_MEASURE
-        co2unit_main.run(next_state, hw)
-
-        hw.power_peripherals(False)
-        for _ in range(0,10): time.sleep(1)
     # --------------------------------------------------
 
+    # Determine state and run
+    import co2unit_main
     try:
-        # Determine state and run
-        import co2unit_main
         next_state = co2unit_main.determine_next_state_after_reset(reset_cause, wake_reason, None)
         co2unit_main.run(next_state, hw)
 
-    finally:
+    #except Exception as e:
         # TODO: catch any exception
-        pass
+
+    finally:
+        seconds_until_measure = co2unit_main.seconds_until_next_measure()
+        _logger.info("Sleeping until next measurement (%d sec)", seconds_until_measure)
+        hw.power_peripherals(False)
+        machine.deepsleep(seconds_until_measure * 1000)
 
 finally:
     # TODO: Catch any exception
