@@ -168,7 +168,7 @@ def quick_check(hw):
             if reading: break
             elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
             if elapsed > 1000:
-                raise TimeoutError("Timeout reading external temp sensor after %d ms", elapsed)
+                raise TimeoutError("Timeout reading external temp sensor after %d ms" % elapsed)
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
 
     global failures
@@ -177,6 +177,8 @@ def quick_check(hw):
 def show_boot_flags():
     _logger.info("pycom.wifi_on_boot():         %s", pycom.wifi_on_boot())
     with CheckStep(FLAG_LTE_FW_API, suppress_exception=True):
+        # These methods are not available on old firmware versions
+        # If they are missing, we need to upgrade the Pycom firmware
         _logger.info("pycom.lte_modem_en_on_boot(): %s", pycom.lte_modem_en_on_boot())
         _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
         _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())

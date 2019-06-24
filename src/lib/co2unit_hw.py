@@ -35,6 +35,10 @@ class Co2UnitHw(object):
         try:
             pinset = pycom.nvs_get("co2unit_pinset")
         except ValueError:
+            # Some firmwares raise a ValueError if not set
+            pinset = PINSET_PRODUCTION
+        if not pinset:
+            # Some firmwares return None if not set
             pinset = PINSET_PRODUCTION
 
         # Note: The P2 pin also controls the RGB LED on Pycom devices
@@ -64,6 +68,9 @@ class Co2UnitHw(object):
             self._sd_cs_pin_name = 'P12'
             self._flash_pin_name = 'P4'
             self._mosfet_pin_name = None
+
+        else:
+            raise ValueError("Unknown pinset value %s" % (pinset))
 
     def mosfet_pin(self):
         if not self._mosfet_pin and self._mosfet_pin_name:
