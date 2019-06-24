@@ -4,6 +4,7 @@ import logging
 import time
 
 _logger = logging.getLogger("co2unit_measure")
+_logger.setLevel(logging.DEBUG)
 
 def read_sensors(hw):
     rtime = time.gmtime()
@@ -96,3 +97,35 @@ def read_sensors(hw):
             "etemp_ms": etemp_ms,
             }
     return reading
+
+def store_reading(reading, reading_data_dir):
+    _logger.debug("Ensuring observation dir exists %s", reading_data_dir)
+    import fileutil
+    import os
+    created_dirs = fileutil.mkdirs(reading_data_dir)
+    if _logger.isEnabledFor(logging.DEBUG):
+        _logger.debug("ls %s: %s", reading_data_dir, os.listdir(reading_data_dir))
+
+    (YY, MM, DD, hh, mm, ss, _, _) = reading["rtime"]
+    co2s = reading["co2"]
+    co2s = [str(co2) for co2 in co2s]
+    co2s = "\t".join(co2s)
+    row_data = {
+            "date": "{:04}-{:02}-{:02}".format(YY,MM,DD),
+            "time": "{:02}:{:02}:{:02}".format(hh,mm,ss),
+            "etemp": reading["etemp"],
+            "co2s": co2s,
+            }
+    row = "{date}\t{time}\t{etemp}\t{co2s}".format(**row_data)
+    _logger.debug("Data row: %s", row)
+    _logger.debug("Data row: %s bytes", len(row) + 1)
+
+    os.chdir(reading_data_dir)
+    filename = "{:04}-{:02}.tsv".format(YY, MM)
+
+    _logger.debug("Writing data to %s/%s ...", reading_data_dir, filename)
+    with open(filename, "at") as f:
+        f.write(row)
+        f.write("\n")
+    _logger.info("Wrote row to %s/%s: %s\t", reading_data_dir, filename, row)
+    return (filename, row)

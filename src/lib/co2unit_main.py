@@ -4,6 +4,8 @@ import time
 import logging
 _logger = logging.getLogger("co2unit_main")
 
+import co2unit_hw
+
 STATE_REPL      = const(1 << 0)
 STATE_SELF_TEST = const(1 << 1)
 STATE_MEASURE   = const(1 << 2)
@@ -53,13 +55,10 @@ def determine_next_state_after_reset(reset_cause, wake_reason, prev_state):
         _logger.warning("Unexpected reset cause (0x%02x)", reset_cause)
         return STATE_SELF_TEST
 
-def run(next_state_override=None):
+def run(hw, next_state_override=None):
 
-    hw = None
     try:
-        # Initialize hardware
-        import co2unit_hw
-        hw = co2unit_hw.Co2UnitHw()
+        # Turn on peripherals
         hw.power_peripherals(True)
 
         reset_cause = machine.reset_cause()
@@ -102,6 +101,12 @@ def run(next_state_override=None):
             import co2unit_measure
             reading = co2unit_measure.read_sensors(hw)
             _logger.info("Reading: %s", reading)
+
+            import os
+            os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
+
+            reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
+            co2unit_measure.store_reading(reading, reading_data_dir)
 
     #except Exception as e:
         # TODO: catch any exception

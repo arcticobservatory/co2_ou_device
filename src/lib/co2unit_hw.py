@@ -24,6 +24,8 @@ def pinset_on_boot(pinset):
     return pycom.nvs_set("co2unit_pinset", pinset)
 
 class Co2UnitHw(object):
+    SDCARD_MOUNT_POINT = "/sd"
+
     def __init__(self):
         self._mosfet_pin = None
         self._sdcard = None
