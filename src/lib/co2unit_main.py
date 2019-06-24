@@ -4,8 +4,9 @@ import time
 import logging
 _logger = logging.getLogger("co2unit_main")
 
-STATE_SELF_TEST = const(1 << 0)
-STATE_MEASURE   = const(1 << 1)
+STATE_REPL      = const(1 << 0)
+STATE_SELF_TEST = const(1 << 1)
+STATE_MEASURE   = const(1 << 2)
 
 MEASURE_FREQ_MINUTES = 5
 
@@ -52,34 +53,70 @@ def determine_next_state_after_reset(reset_cause, wake_reason, prev_state):
         _logger.warning("Unexpected reset cause (0x%02x)", reset_cause)
         return STATE_SELF_TEST
 
-def run(state, hw):
+def run(next_state_override=None):
 
-    if state == STATE_SELF_TEST:
-        _logger.info("Starting self-test and full boot sequence...")
+    hw = None
+    try:
+        # Initialize hardware
+        import co2unit_hw
+        hw = co2unit_hw.Co2UnitHw()
+        hw.power_peripherals(True)
 
-        # Reset heartbeat to initialize RGB LED, for test feedback
-        import pycom
-        pycom.heartbeat(True)
-        pycom.heartbeat(False)
+        reset_cause = machine.reset_cause()
+        wake_reason = machine.wake_reason()
 
-        # Do self-test
-        import co2unit_self_test
-        co2unit_self_test.full_self_test(hw)
+        next_state = next_state_override \
+                or determine_next_state_after_reset(reset_cause, wake_reason, None)
 
-        # Turn off all boot options to save power
-        pycom.wifi_on_boot(False)
-        pycom.lte_modem_en_on_boot(False)
-        pycom.wdt_on_boot(False)
-        pycom.heartbeat_on_boot(False)
+        if next_state == STATE_REPL:
+            _logger.info("Exiting to REPL...")
+            import sys
+            sys.exit()
 
-    elif state == STATE_MEASURE:
-        _logger.info("Starting measurement sequence...")
+        elif next_state == STATE_SELF_TEST:
+            _logger.info("Starting self-test and full boot sequence...")
 
-        try:
-            hw.sync_to_most_reliable_rtc()
-        except Exception as e:
-            _logger.warning("%s: %s", type(e).__name__, e)
+            # Reset heartbeat to initialize RGB LED, for test feedback
+            import pycom
+            pycom.heartbeat(True)
+            pycom.heartbeat(False)
 
-        import co2unit_measure
-        reading = co2unit_measure.read_sensors(hw)
-        _logger.info("Reading: %s", reading)
+            # Do self-test
+            import co2unit_self_test
+            co2unit_self_test.full_self_test(hw)
+
+            # Turn off all boot options to save power
+            pycom.wifi_on_boot(False)
+            pycom.lte_modem_en_on_boot(False)
+            pycom.wdt_on_boot(False)
+            pycom.heartbeat_on_boot(False)
+
+        elif next_state == STATE_MEASURE:
+            _logger.info("Starting measurement sequence...")
+
+            try:
+                hw.sync_to_most_reliable_rtc()
+            except Exception as e:
+                _logger.warning("%s: %s", type(e).__name__, e)
+
+            import co2unit_measure
+            reading = co2unit_measure.read_sensors(hw)
+            _logger.info("Reading: %s", reading)
+
+    #except Exception as e:
+        # TODO: catch any exception
+    finally: pass
+
+    try:
+        hw.power_peripherals(False)
+        _logger.info("Peripherals off")
+    except Exception(e):
+        _logger.error("Could not turn off peripherals before sleep. %s: %s", type(e).__name__, e)
+
+    seconds_until_measure = seconds_until_next_measure()
+    _logger.info("Sleeping until next measurement (%d sec)", seconds_until_measure)
+    machine.deepsleep(seconds_until_measure * 1000)
+
+    # MicroPython does not resume after deep sleep.
+    # Function will never return.
+    # Machine will reboot after sleep.
