@@ -31,13 +31,13 @@ class ExplorIr(object):
                 if line[1]==expect_code:
                     return line
                 elif line[1]=="?":
-                    raise ExplorIrError("Error response from sensor: %s" % line)
+                    raise ExplorIrError("Error response from CO2 sensor: %s" % line)
                 elif not skip_others:
-                    raise ExplorIrError("Unexpected response from sensor: %s" % line)
+                    raise ExplorIrError("Unexpected response from CO2 sensor: %s" % line)
 
             elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
             if elapsed > timeout_ms:
-                raise TimeoutError("Timeout trying to read sensor: %d ms" % elapsed)
+                raise TimeoutError("Timeout trying to read CO2 sensor: %d ms" % elapsed)
 
     def set_mode(self, mode):
         _logger.debug("CO2: switching to mode %d" % mode)
