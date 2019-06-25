@@ -29,7 +29,7 @@ def read_sensors(hw):
     etemp_reading = None
     etemp_ms = None
 
-    co2_readings = [0] * 10
+    co2_readings = [None] * 10
     co2_i = 0
     co2_ms = None
 
