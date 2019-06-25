@@ -57,9 +57,10 @@ def read_sensors(hw):
             co2_readings[co2_i] = co2.read_co2()    # [] = will propagate
             co2_ms = chrono.read_ms()               #    = will NOT propagate
             _logger.debug("CO2 reading #%d: %6d ppm at %4d ms", co2_i, co2_readings[co2_i], co2_ms)
-            co2_i += 1                              #   += will propagate
         except Exception as e:
             _logger.error("Unexpected error during CO2 sensor reading #%d. %s: %s", co2_i, type(e).__name__, e)
+        finally:
+            co2_i += 1                              #   += will propagate
 
     # Do throwaway reads of CO2 while waiting for temperature
     try_read_co2_sensor()
