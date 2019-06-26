@@ -3,7 +3,7 @@ import os
 import logging
 
 _logger = logging.getLogger("fileutil")
-_logger.setLevel(logging.DEBUG)
+#_logger.setLevel(logging.DEBUG)
 
 STAT_SIZE_INDEX = 6
 

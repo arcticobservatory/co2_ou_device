@@ -6,7 +6,9 @@ import os
 import time
 
 _logger = logging.getLogger("co2unit_measure")
-_logger.setLevel(logging.DEBUG)
+#_logger.setLevel(logging.DEBUG)
+
+READING_FILE_SIZE_CUTOFF = const(100 * 1000)
 
 def read_sensors(hw):
     rtime = time.gmtime()
@@ -56,7 +58,7 @@ def read_sensors(hw):
         try:
             co2_readings[co2_i] = co2.read_co2()    # [] = will propagate
             co2_ms = chrono.read_ms()               #    = will NOT propagate
-            _logger.debug("CO2 reading #%d: %6d ppm at %4d ms", co2_i, co2_readings[co2_i], co2_ms)
+            _logger.info("CO2 reading #%d: %6d ppm at %4d ms", co2_i, co2_readings[co2_i], co2_ms)
         except Exception as e:
             _logger.error("Unexpected error during CO2 sensor reading #%d. %s: %s", co2_i, type(e).__name__, e)
         finally:
@@ -73,6 +75,7 @@ def read_sensors(hw):
         while not etemp_reading:
             etemp_reading = etemp.read_temp_async()
             etemp_ms = chrono.read_ms()
+            _logger.info("etemp reading : %6.3f C   at %4d ms", etemp_reading, etemp_ms)
             if not etemp_reading and etemp_ms > 1000:
                 _logger.error("Timeout reading external temp sensor after %d ms", etemp_ms)
                 break
@@ -100,8 +103,6 @@ def read_sensors(hw):
             "etemp_ms": etemp_ms,
             }
     return reading
-
-READING_FILE_SIZE_CUTOFF = const(100 * 1000)
 
 def reading_to_tsv_row(reading):
     (YY, MM, DD, hh, mm, ss, _, _) = reading["rtime"]
