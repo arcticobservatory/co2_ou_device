@@ -137,7 +137,16 @@ class CheckStep(object):
             failures &= ~self.flag
             _logger.debug("%s %s OK (%d ms)", self.flag_bin, self.flag_name, elapsed)
 
-def quick_check(hw):
+def show_boot_flags():
+    _logger.info("pycom.wifi_on_boot():         %s", pycom.wifi_on_boot())
+    with CheckStep(FLAG_LTE_FW_API, suppress_exception=True):
+        # These methods are not available on old firmware versions
+        # If they are missing, we need to upgrade the Pycom firmware
+        _logger.info("pycom.lte_modem_en_on_boot(): %s", pycom.lte_modem_en_on_boot())
+        _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
+        _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
+
+def quick_test_hw(hw):
 
     _logger.info("Starting hardware quick check")
 
@@ -180,32 +189,17 @@ def quick_check(hw):
                 raise TimeoutError("Timeout reading external temp sensor after %d ms" % elapsed)
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
 
-    global failures
-    return failures
-
-def check_time_source(hw):
-    with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
-        hw.sync_to_most_reliable_rtc()
-
-    global failures
-    return failures
-
-def show_boot_flags():
-    _logger.info("pycom.wifi_on_boot():         %s", pycom.wifi_on_boot())
-    with CheckStep(FLAG_LTE_FW_API, suppress_exception=True):
-        # These methods are not available on old firmware versions
-        # If they are missing, we need to upgrade the Pycom firmware
-        _logger.info("pycom.lte_modem_en_on_boot(): %s", pycom.lte_modem_en_on_boot())
-        _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
-        _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
+    show_boot_flags()
+    _logger.info("Failures after quick hardware check: {:#018b}".format(failures))
+    display_errors_led()
 
 def test_lte_ntp(hw, max_drift_secs=4):
 
     global failures
     _logger.info("Testing LTE connectivity...")
 
-    def log_error(desc, e):
-        _logger.warning("%s. %s: %s", desc, type(e).__name__, e)
+    with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
+        hw.sync_to_most_reliable_rtc()
 
     try:
         with CheckStep(FLAG_LTE_FW_API):
@@ -269,4 +263,6 @@ def test_lte_ntp(hw, max_drift_secs=4):
     except:
         pass
 
-    return failures
+    show_boot_flags()
+    _logger.info("Failures after LTE test: {:#018b}".format(failures))
+    display_errors_led()

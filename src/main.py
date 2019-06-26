@@ -1,5 +1,5 @@
 try:
-    # Start hardware
+    # Get handle to hardware
     import co2unit_hw
     hw = co2unit_hw.Co2UnitHw()
 
@@ -10,16 +10,16 @@ try:
 
     # Defer to co2unit_main
     import co2unit_main
-    next_state_override = None
+    force_mode = None
 
     # Special testing zone
     # --------------------------------------------------
-    #next_state_override = co2unit_main.STATE_REPL
-    #next_state_override = co2unit_main.STATE_QUICK_HW_TEST
-    #next_state_override = co2unit_main.STATE_MEASURE
+    #force_mode = co2unit_main.MODE_EXIT_TO_REPL
+    #force_mode = co2unit_main.MODE_HW_TEST_ONLY
+    #force_mode = co2unit_main.MODE_TAKE_MEASUREMENT
     # --------------------------------------------------
 
-    co2unit_main.run(hw, next_state_override)
+    co2unit_main.run(hw, force_mode)
 
 #except Exception as e:
     # TODO: Catch any exception

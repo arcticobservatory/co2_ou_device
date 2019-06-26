@@ -1,4 +1,5 @@
 import machine
+import pycom
 import time
 
 import logging
@@ -6,10 +7,13 @@ _logger = logging.getLogger("co2unit_main")
 
 import co2unit_hw
 
-STATE_REPL          = const(1 << 0)
-STATE_QUICK_HW_TEST = const(1 << 1)
-STATE_SELF_TEST     = const(1 << 2)
-STATE_MEASURE       = const(1 << 3)
+# Special testing modes
+MODE_EXIT_TO_REPL       = const(1)
+MODE_HW_TEST_ONLY       = const(2)
+
+# Normal operation
+MODE_FULL_SELF_TEST     = const(3)
+MODE_TAKE_MEASUREMENT   = const(4)
 
 MEASURE_FREQ_MINUTES = 5
 
@@ -33,7 +37,7 @@ def seconds_until_next_measure():
     _logger.info("Next measurement at %s (T minus %d seconds)", measure_time, seconds_left)
     return seconds_left
 
-def determine_next_state_after_reset(reset_cause, wake_reason, prev_state):
+def determine_mode_after_reset(reset_cause, wake_reason):
 
     # Specific reset causes:
     # PWRON_RESET: fresh power on, reset button
@@ -45,76 +49,56 @@ def determine_next_state_after_reset(reset_cause, wake_reason, prev_state):
     # SW_CPU_RESET (0xc): core dump crash
 
     if reset_cause in [machine.PWRON_RESET, machine.SOFT_RESET]:
-        _logger.info("Manual reset (0x%02x). Next step: STATE_SELF_TEST", reset_cause)
-        return STATE_SELF_TEST
+        _logger.info("Manual reset (0x%02x). Next step: MODE_FULL_SELF_TEST", reset_cause)
+        return MODE_FULL_SELF_TEST
 
     elif reset_cause == machine.DEEPSLEEP_RESET:
-        _logger.info("Deep sleep reset (0x%02x). Next step: STATE_MEASURE", reset_cause)
-        return STATE_MEASURE
+        _logger.info("Deep sleep reset (0x%02x). Next step: MODE_TAKE_MEASUREMENT", reset_cause)
+        return MODE_TAKE_MEASUREMENT
 
     else:
         _logger.warning("Unexpected reset cause (0x%02x)", reset_cause)
-        return STATE_SELF_TEST
+        return MODE_FULL_SELF_TEST
 
-def run(hw, next_state_override=None):
+def run(hw, force_mode=None):
 
     try:
-        # Turn on peripherals
-        hw.power_peripherals(True)
-
         reset_cause = machine.reset_cause()
         wake_reason = machine.wake_reason()
 
-        next_state = next_state_override \
-                or determine_next_state_after_reset(reset_cause, wake_reason, None)
+        run_mode = force_mode \
+                or determine_mode_after_reset(reset_cause, wake_reason)
 
-        if next_state == STATE_REPL:
+        # Turn on peripherals
+        hw.power_peripherals(True)
+
+        if run_mode == MODE_EXIT_TO_REPL:
             _logger.info("Exiting to REPL...")
             import sys
             sys.exit()
 
-        elif next_state == STATE_QUICK_HW_TEST:
+        elif run_mode == MODE_HW_TEST_ONLY:
             _logger.info("Starting quick self test...")
 
             # Reset heartbeat to initialize RGB LED, for test feedback
-            import pycom
             pycom.heartbeat(True)
             pycom.heartbeat(False)
 
             # Do self-test
             import co2unit_self_test
+            co2unit_self_test.quick_test_hw(hw)
 
-            # First, the quick hardware check
-            co2unit_self_test.quick_check(hw)
-            co2unit_self_test.show_boot_flags()
-            _logger.info("Failures after quick hardware check: {:#018b}".format(co2unit_self_test.failures))
-            co2unit_self_test.display_errors_led()
-
-        elif next_state == STATE_SELF_TEST:
+        elif run_mode == MODE_FULL_SELF_TEST:
             _logger.info("Starting self-test and full boot sequence...")
 
             # Reset heartbeat to initialize RGB LED, for test feedback
-            import pycom
             pycom.heartbeat(True)
             pycom.heartbeat(False)
 
             # Do self-test
             import co2unit_self_test
-
-            # First, the quick hardware check
-            co2unit_self_test.quick_check(hw)
-            co2unit_self_test.show_boot_flags()
-            _logger.info("Failures after quick hardware check: {:#018b}".format(co2unit_self_test.failures))
-            co2unit_self_test.display_errors_led()
-
-            # Check the RTC times
-            co2unit_self_test.check_time_source(hw)
-
-            # Check LTE
+            co2unit_self_test.quick_test_hw(hw)
             co2unit_self_test.test_lte_ntp(hw)
-            co2unit_self_test.show_boot_flags()
-            _logger.info("Failures after LTE test: {:#018b}".format(co2unit_self_test.failures))
-            co2unit_self_test.display_errors_led()
 
             # Turn off all boot options to save power
             pycom.wifi_on_boot(False)
@@ -122,7 +106,7 @@ def run(hw, next_state_override=None):
             pycom.wdt_on_boot(False)
             pycom.heartbeat_on_boot(False)
 
-        elif next_state == STATE_MEASURE:
+        elif run_mode == MODE_TAKE_MEASUREMENT:
             _logger.info("Starting measurement sequence...")
 
             try:
