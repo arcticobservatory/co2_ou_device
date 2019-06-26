@@ -127,39 +127,25 @@ def choose_readings_file(reading_data_dir):
     # Then we might be able to guess the times by the sequence of wrong times.
 
     os.chdir(reading_data_dir)
-    files = os.listdir()
-    files.sort()
 
-    FILE_PREFIX = "readings-"
-    FILE_SUFFIX = ".tsv"
-    def make_filename(file_index):
-        return "%s%04d%s" % (FILE_PREFIX, file_index, FILE_SUFFIX)
+    readings_match = ("readings-", ".tsv")
+    readings_file = fileutil.last_file_in_sequence(readings_match)
 
-    # Work backwards in listing, looking for filenames that fit the pattern
-    readings_file = None
-    while files:
-        last_file = files.pop()
-        if not last_file.startswith(FILE_PREFIX) or not last_file.endswith(FILE_SUFFIX):
-            _logger.debug("%20s : Skipping non-reading file", last_file)
-            continue
+    if not readings_file:
+        readings_file = fileutil.make_sequence_filename(0, readings_match)
+        _logger.info(" %20s : no readings found. Starting fresh", readings_file)
 
-        stat = os.stat(last_file)
+    else:
+        stat = os.stat(readings_file)
         file_size = stat[fileutil.STAT_SIZE_INDEX]
 
         if file_size < READING_FILE_SIZE_CUTOFF:
-            _logger.debug("%20s : using current readings file...", last_file)
-            readings_file = last_file
+            _logger.debug("%20s : using current readings file...", readings_file)
         else:
-            file_index = last_file[len(FILE_PREFIX): -len(FILE_SUFFIX)]
-            file_index = int(file_index)
-            readings_file = make_filename(file_index + 1)
-            _logger.info(" %20s : file over size threshold", last_file)
+            _logger.info(" %20s : file over size threshold", readings_file)
+            index = fileutil.extract_sequence_number(readings_file, readings_match)
+            readings_file = fileutil.make_sequence_filename(index+1, readings_match)
             _logger.info(" %20s : beginning new file", readings_file)
-        break
-
-    if not readings_file:
-        readings_file = make_filename(0)
-        _logger.info(" %20s : no readings found. Starting fresh", readings_file)
 
     return readings_file
 
