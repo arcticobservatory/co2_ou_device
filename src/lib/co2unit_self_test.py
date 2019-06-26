@@ -236,11 +236,11 @@ def test_lte_ntp(hw, max_drift_secs=4):
 
         with CheckStep(FLAG_NTP_FETCH, suppress_exception=True):
             from machine import RTC
-            import time_util
+            import timeutil
 
             start_ticks = time.ticks_ms()
             irtc = RTC()
-            ts = time_util.fetch_ntp_time()
+            ts = timeutil.fetch_ntp_time()
             idrift = ts - time.mktime(irtc.now())
             if abs(idrift) < max_drift_secs:
                 _logger.info("Drift from NTP: %s s; within threshold (%d s)", idrift, max_drift_secs)

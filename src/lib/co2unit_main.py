@@ -17,26 +17,6 @@ MODE_TAKE_MEASUREMENT   = const(4)
 
 MEASURE_FREQ_MINUTES = 5
 
-def next_even_minutes(minutes_divisor):
-    tt = time.gmtime()
-    minutes = tt[4]
-    next_minutes = ((minutes // minutes_divisor) + 1) * minutes_divisor
-    # time.mktime() will handle minutes overflow as you would expect:
-    # 14:70 -> 15:10
-    next_tt = tt[0:4] + (next_minutes, 0, 0, 0)
-    return next_tt
-
-def seconds_until_time(next_tt):
-    now = time.time()
-    secs = time.mktime(next_tt) - now
-    return secs
-
-def seconds_until_next_measure():
-    measure_time = next_even_minutes(MEASURE_FREQ_MINUTES)
-    seconds_left = seconds_until_time(measure_time)
-    _logger.info("Next measurement at %s (T minus %d seconds)", measure_time, seconds_left)
-    return seconds_left
-
 def determine_mode_after_reset(reset_cause, wake_reason):
 
     # Specific reset causes:
@@ -139,7 +119,11 @@ def run(hw, force_mode=None, exit_to_repl_after=False):
     except Exception(e):
         _logger.error("Could not turn off peripherals before sleep. %s: %s", type(e).__name__, e)
 
-    seconds_until_measure = seconds_until_next_measure()
+    import timeutil
+
+    measure_time = timeutil.next_even_minutes(MEASURE_FREQ_MINUTES)
+    seconds_until_measure = timeutil.seconds_until_time(measure_time)
+    _logger.info("Next measurement at %s (T minus %d seconds)", measure_time, seconds_until_measure)
     _logger.info("Sleeping until next measurement (%d sec)", seconds_until_measure)
     machine.deepsleep(seconds_until_measure * 1000)
 
