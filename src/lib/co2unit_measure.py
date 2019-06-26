@@ -128,9 +128,10 @@ def choose_readings_file(reading_data_dir):
     # Then we might be able to guess the times by the sequence of wrong times.
 
     os.chdir(reading_data_dir)
+    files = os.listdir()
 
     readings_match = ("readings-", ".tsv")
-    readings_file = fileutil.last_file_in_sequence(readings_match)
+    readings_file = fileutil.last_file_in_sequence(files, readings_match)
 
     if not readings_file:
         readings_file = fileutil.make_sequence_filename(0, readings_match)

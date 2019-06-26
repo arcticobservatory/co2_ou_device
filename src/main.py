@@ -18,7 +18,26 @@ try:
     #force_mode = co2unit_main.MODE_HW_TEST_ONLY
 
     #force_mode = co2unit_main.MODE_TAKE_MEASUREMENT
-    co2unit_main.run(hw, force_mode, exit_to_repl_after=False)
+    #co2unit_main.run(hw, force_mode, exit_to_repl_after=True)
+
+    hw.power_peripherals(True)
+
+    import time
+    time.sleep_ms(500)
+
+    import os
+    os.mount(hw.sdcard(), "/sd")
+
+    # Dump current code to update so update doesn't clobber progress
+
+    import fileutil
+    os.chdir("/sd/updates")
+    fileutil.rm_recursive("update-2019-06-13/flash")
+    fileutil.copy_recursive("/flash", "update-2019-06-13/flash")
+
+    os.unmount("/sd")
+
+    co2unit_main.run(hw, force_mode, exit_to_repl_after=True)
     # --------------------------------------------------
 
     co2unit_main.run(hw)

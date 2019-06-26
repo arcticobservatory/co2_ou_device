@@ -17,7 +17,17 @@ MODE_TAKE_MEASUREMENT   = const(4)
 
 MEASURE_FREQ_MINUTES = 5
 
-def determine_mode_after_reset(reset_cause, wake_reason):
+NOTE_NOTHING                    = const(0)
+NOTE_UPDATED_DURING_SELF_TEST   = const(1)
+
+def note_to_self_on_boot(note_to_self=None):
+    if note_to_self==None:
+        try: return pycom.nvs_get("co2_note")
+        except: return None
+    else:
+        pycom.nvs_set("co2_note", note_to_self)
+
+def determine_mode_after_reset(reset_cause, wake_reason, note_to_self):
 
     # Specific reset causes:
     # PWRON_RESET: fresh power on, reset button
@@ -36,8 +46,12 @@ def determine_mode_after_reset(reset_cause, wake_reason):
         _logger.info("Deep sleep reset (0x%02x). Next step: MODE_TAKE_MEASUREMENT", reset_cause)
         return MODE_TAKE_MEASUREMENT
 
+    elif reset_cause == machine.WDT_RESET and note_to_self == NOTE_UPDATED_DURING_SELF_TEST:
+        _logger.info("Self reset (0x%02x) during self test. Next step: MODE_FULL_SELF_TEST", reset_cause)
+        return MODE_FULL_SELF_TEST
+
     else:
-        _logger.warning("Unexpected reset cause (0x%02x)", reset_cause)
+        _logger.warning("Unexpected start conditions. reset: 0x%02x; note_to_self: 0x%02x", reset_cause, note_to_self)
         return MODE_FULL_SELF_TEST
 
 def run(hw, force_mode=None, exit_to_repl_after=False):
@@ -45,9 +59,12 @@ def run(hw, force_mode=None, exit_to_repl_after=False):
     try:
         reset_cause = machine.reset_cause()
         wake_reason = machine.wake_reason()
+        note_to_self = note_to_self_on_boot()
 
         run_mode = force_mode \
-                or determine_mode_after_reset(reset_cause, wake_reason)
+                or determine_mode_after_reset(reset_cause, wake_reason, note_to_self)
+
+        note_to_self_on_boot(NOTE_NOTHING)
 
         # Turn on peripherals
         hw.power_peripherals(True)
@@ -75,9 +92,24 @@ def run(hw, force_mode=None, exit_to_repl_after=False):
             pycom.heartbeat(True)
             pycom.heartbeat(False)
 
-            # Do self-test
+            # Do hardware self-test
             import co2unit_self_test
             co2unit_self_test.quick_test_hw(hw)
+
+            # If SD card is OK, check for updates
+            if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
+                import os
+                os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
+
+                import co2unit_update
+                updates_dir = hw.SDCARD_MOUNT_POINT + "/updates"
+                updates_installed = co2unit_update.check_and_install_updates(updates_dir)
+
+                if updates_installed:
+                    note_to_self_on_boot(NOTE_UPDATED_DURING_SELF_TEST)
+                    machine.reset()
+
+            # Continue with self test
             co2unit_self_test.test_lte_ntp(hw)
 
             # Turn off all boot options to save power
