@@ -18,7 +18,7 @@ try:
     #force_mode = co2unit_main.MODE_HW_TEST_ONLY
 
     #force_mode = co2unit_main.MODE_TAKE_MEASUREMENT
-    co2unit_main.run(hw, force_mode, exit_to_repl_after=True)
+    #co2unit_main.run(hw, force_mode, exit_to_repl_after=True)
     # --------------------------------------------------
 
     co2unit_main.run(hw)
