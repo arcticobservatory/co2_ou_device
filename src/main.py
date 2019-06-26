@@ -15,6 +15,7 @@ try:
     # Special testing zone
     # --------------------------------------------------
     #next_state_override = co2unit_main.STATE_REPL
+    #next_state_override = co2unit_main.STATE_QUICK_HW_TEST
     #next_state_override = co2unit_main.STATE_MEASURE
     # --------------------------------------------------
 

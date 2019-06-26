@@ -6,9 +6,10 @@ _logger = logging.getLogger("co2unit_main")
 
 import co2unit_hw
 
-STATE_REPL      = const(1 << 0)
-STATE_SELF_TEST = const(1 << 1)
-STATE_MEASURE   = const(1 << 2)
+STATE_REPL          = const(1 << 0)
+STATE_QUICK_HW_TEST = const(1 << 1)
+STATE_SELF_TEST     = const(1 << 2)
+STATE_MEASURE       = const(1 << 3)
 
 MEASURE_FREQ_MINUTES = 5
 
@@ -72,6 +73,23 @@ def run(hw, next_state_override=None):
             import sys
             sys.exit()
 
+        elif next_state == STATE_QUICK_HW_TEST:
+            _logger.info("Starting quick self test...")
+
+            # Reset heartbeat to initialize RGB LED, for test feedback
+            import pycom
+            pycom.heartbeat(True)
+            pycom.heartbeat(False)
+
+            # Do self-test
+            import co2unit_self_test
+
+            # First, the quick hardware check
+            co2unit_self_test.quick_check(hw)
+            co2unit_self_test.show_boot_flags()
+            _logger.info("Failures after quick hardware check: {:#018b}".format(co2unit_self_test.failures))
+            co2unit_self_test.display_errors_led()
+
         elif next_state == STATE_SELF_TEST:
             _logger.info("Starting self-test and full boot sequence...")
 
@@ -82,7 +100,21 @@ def run(hw, next_state_override=None):
 
             # Do self-test
             import co2unit_self_test
-            co2unit_self_test.full_self_test(hw)
+
+            # First, the quick hardware check
+            co2unit_self_test.quick_check(hw)
+            co2unit_self_test.show_boot_flags()
+            _logger.info("Failures after quick hardware check: {:#018b}".format(co2unit_self_test.failures))
+            co2unit_self_test.display_errors_led()
+
+            # Check the RTC times
+            co2unit_self_test.check_time_source(hw)
+
+            # Check LTE
+            co2unit_self_test.test_lte_ntp(hw)
+            co2unit_self_test.show_boot_flags()
+            _logger.info("Failures after LTE test: {:#018b}".format(co2unit_self_test.failures))
+            co2unit_self_test.display_errors_led()
 
             # Turn off all boot options to save power
             pycom.wifi_on_boot(False)

@@ -160,9 +160,6 @@ def quick_check(hw):
         time_tuple = ertc.get_time()
         _logger.info("External RTC ok. Current time: %s", time_tuple)
 
-    with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
-        hw.sync_to_most_reliable_rtc()
-
     with CheckStep(FLAG_CO2, suppress_exception=True):
         import explorir
         co2 = hw.co2()
@@ -182,6 +179,13 @@ def quick_check(hw):
             if elapsed > 1000:
                 raise TimeoutError("Timeout reading external temp sensor after %d ms" % elapsed)
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
+
+    global failures
+    return failures
+
+def check_time_source(hw):
+    with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
+        hw.sync_to_most_reliable_rtc()
 
     global failures
     return failures
@@ -266,16 +270,3 @@ def test_lte_ntp(hw, max_drift_secs=4):
         pass
 
     return failures
-
-def full_self_test(hw):
-    # First, the quick hardware check
-    quick_check(hw)
-    show_boot_flags()
-    _logger.info("Failures after quick hardware check: {:#018b}".format(failures))
-    display_errors_led()
-
-    # Then the LTE check
-    test_lte_ntp(hw)
-    show_boot_flags()
-    _logger.info("Failures after LTE test: {:#018b}".format(failures))
-    display_errors_led()
