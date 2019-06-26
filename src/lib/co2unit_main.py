@@ -60,7 +60,7 @@ def determine_mode_after_reset(reset_cause, wake_reason):
         _logger.warning("Unexpected reset cause (0x%02x)", reset_cause)
         return MODE_FULL_SELF_TEST
 
-def run(hw, force_mode=None):
+def run(hw, force_mode=None, exit_to_repl_after=False):
 
     try:
         reset_cause = machine.reset_cause()
@@ -128,6 +128,11 @@ def run(hw, force_mode=None):
         # TODO: catch any exception
     finally: pass
 
+    if exit_to_repl_after:
+        import sys
+        sys.exit()
+
+    # Go to sleep until next wake-up
     try:
         hw.power_peripherals(False)
         _logger.info("Peripherals off")
