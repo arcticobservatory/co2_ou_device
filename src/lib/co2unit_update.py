@@ -44,7 +44,7 @@ def check_for_updates():
                  state.update(from_file)
         except ValueError as e:
             _logger.warning("Currupt %s. Proceeding with defaults", UPDATE_STATE_FILENAME)
-    _logger.info("Update state: %s", state)
+    _logger.debug("Update state: %s", state)
     state = Namespace(**state)
     newest_update = fileutil.last_file_in_sequence(contents, UPDATES_MATCH)
 
@@ -91,3 +91,20 @@ def check_and_install_updates(updates_dir):
         return install_update(state, new_update)
     else:
         return False
+
+def reset_update_for_test(updates_dir, update_subdir):
+    """
+    Dumps current state to update directory so update will be idempotent, and resets updates status
+
+    Example:
+
+    import co2unit_update
+    co2unit_update.reset_update_for_test("/sd/updates", "update-2019-06-13")
+    """
+    os.chdir(updates_dir)
+    # Clear the subdirectory
+    fileutil.rm_recursive(update_subdir)
+    # Copy current code to the subdirectory
+    fileutil.copy_recursive("/flash", update_subdir+"/flash")
+    # Remove the update status file
+    os.remove(UPDATE_STATE_FILENAME)
