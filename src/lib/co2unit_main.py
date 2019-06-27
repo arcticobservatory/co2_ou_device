@@ -7,74 +7,83 @@ _logger = logging.getLogger("co2unit_main")
 
 import co2unit_hw
 
-# Special testing modes
-MODE_EXIT_TO_REPL       = const(1)
-MODE_HW_TEST_ONLY       = const(2)
-
 # Normal operation
-MODE_FULL_SELF_TEST     = const(3)
-MODE_TAKE_MEASUREMENT   = const(4)
+STATE_UNKNOWN           = const(0)
+STATE_FULL_SELF_TEST    = const(1)
+STATE_TAKE_MEASUREMENT  = const(2)
+
+# Special testing modes
+STATE_EXIT_TO_REPL      = const(10)
+STATE_HW_TEST_ONLY      = const(11)
 
 MEASURE_FREQ_MINUTES = 5
 
-NOTE_NOTHING                    = const(0)
-NOTE_UPDATED_DURING_SELF_TEST   = const(1)
-
-def note_to_self_on_boot(note_to_self=None):
-    if note_to_self==None:
-        try: return pycom.nvs_get("co2_note")
+def next_state_on_boot(next_state=None):
+    if next_state==None:
+        try: return pycom.nvs_get("co2_next")
         except: return None
     else:
-        pycom.nvs_set("co2_note", note_to_self)
+        pycom.nvs_set("co2_next", next_state)
 
-def determine_mode_after_reset(reset_cause, wake_reason, note_to_self):
-
-    # Specific reset causes:
-    # PWRON_RESET: fresh power on, reset button
-    # DEEPSLEEP_RESET: waking from deep sleep
-    # WDT_RESET: machine.reset() in script
-    # SOFT_RESET: ctrl+D in REPL
-    #
-    # Undocumented:
-    # SW_CPU_RESET (0xc): core dump crash
-
-    if reset_cause in [machine.PWRON_RESET, machine.SOFT_RESET]:
-        _logger.info("Manual reset (0x%02x). Next step: MODE_FULL_SELF_TEST", reset_cause)
-        return MODE_FULL_SELF_TEST
-
-    elif reset_cause == machine.DEEPSLEEP_RESET:
-        _logger.info("Deep sleep reset (0x%02x). Next step: MODE_TAKE_MEASUREMENT", reset_cause)
-        return MODE_TAKE_MEASUREMENT
-
-    elif reset_cause == machine.WDT_RESET and note_to_self == NOTE_UPDATED_DURING_SELF_TEST:
-        _logger.info("Self reset (0x%02x) during self test. Next step: MODE_FULL_SELF_TEST", reset_cause)
-        return MODE_FULL_SELF_TEST
-
-    else:
-        _logger.warning("Unexpected start conditions. reset: 0x%02x; note_to_self: 0x%02x", reset_cause, note_to_self)
-        return MODE_FULL_SELF_TEST
-
-def run(hw, force_mode=None, exit_to_repl_after=False):
+def run(hw, force_state=None, exit_to_repl_after=False):
 
     try:
+        # Determine next state
+        # --------------------------------------------------
+
         reset_cause = machine.reset_cause()
         wake_reason = machine.wake_reason()
-        note_to_self = note_to_self_on_boot()
+        next_state_hint = next_state_on_boot()
 
-        run_mode = force_mode \
-                or determine_mode_after_reset(reset_cause, wake_reason, note_to_self)
+        _logger.info("Start conditions: reset_cause 0x%02x; wake_reason %s; next_state_hint %s; force_state %s;",
+                reset_cause, wake_reason, next_state_hint, force_state)
 
-        note_to_self_on_boot(NOTE_NOTHING)
+        # Specific reset causes:
+        # PWRON_RESET: fresh power on, reset button
+        # DEEPSLEEP_RESET: waking from deep sleep
+        # WDT_RESET: machine.reset() in script
+        # SOFT_RESET: ctrl+D in REPL
+        #
+        # Undocumented:
+        # SW_CPU_RESET (0xc): core dump crash
+
+        if force_state:
+            next_state = force_state
+
+        elif reset_cause in [machine.PWRON_RESET, machine.SOFT_RESET]:
+            next_state = STATE_FULL_SELF_TEST
+
+        elif reset_cause == machine.DEEPSLEEP_RESET:
+            next_state = STATE_TAKE_MEASUREMENT
+
+        elif reset_cause == machine.WDT_RESET:
+            next_state = next_state_hint
+
+        else:
+            _logger.warning("Unexpected start conditions")
+
+        if not next_state:
+            _logger.warning("No next state determined. Falling back to default...")
+            next_state = STATE_TAKE_MEASUREMENT
+
+        next_state_on_boot(STATE_UNKNOWN)
+
+        # Run chosen state
+        # --------------------------------------------------
 
         # Turn on peripherals
         hw.power_peripherals(True)
 
-        if run_mode == MODE_EXIT_TO_REPL:
+        if next_state == STATE_EXIT_TO_REPL:
             _logger.info("Exiting to REPL...")
+
+            import os
+            os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
+
             import sys
             sys.exit()
 
-        elif run_mode == MODE_HW_TEST_ONLY:
+        elif next_state == STATE_HW_TEST_ONLY:
             _logger.info("Starting quick self test...")
 
             # Reset heartbeat to initialize RGB LED, for test feedback
@@ -85,7 +94,7 @@ def run(hw, force_mode=None, exit_to_repl_after=False):
             import co2unit_self_test
             co2unit_self_test.quick_test_hw(hw)
 
-        elif run_mode == MODE_FULL_SELF_TEST:
+        elif next_state == STATE_FULL_SELF_TEST:
             _logger.info("Starting self-test and full boot sequence...")
 
             # Reset heartbeat to initialize RGB LED, for test feedback
@@ -106,7 +115,8 @@ def run(hw, force_mode=None, exit_to_repl_after=False):
                 updates_installed = co2unit_update.check_and_install_updates(updates_dir)
 
                 if updates_installed:
-                    note_to_self_on_boot(NOTE_UPDATED_DURING_SELF_TEST)
+                    # Reboot and restart self test
+                    next_state_on_boot(STATE_FULL_SELF_TEST)
                     machine.reset()
 
             # Continue with self test
@@ -118,7 +128,7 @@ def run(hw, force_mode=None, exit_to_repl_after=False):
             pycom.wdt_on_boot(False)
             pycom.heartbeat_on_boot(False)
 
-        elif run_mode == MODE_TAKE_MEASUREMENT:
+        elif next_state == STATE_TAKE_MEASUREMENT:
             _logger.info("Starting measurement sequence...")
 
             try:
