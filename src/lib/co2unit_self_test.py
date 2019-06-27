@@ -1,3 +1,4 @@
+from machine import Timer
 import logging
 import time
 
@@ -115,18 +116,18 @@ class CheckStep(object):
         self.flag_bin = "{flag:#0{width}b}".format(flag=flag, width=FLAG_MAX_SHIFT+2)
         self.flag_name = "{:20}".format(flag_name(flag))
         self.suppress_exception = suppress_exception
-        self.start_ticks = None
+        self.chrono = Timer.Chrono()
         self.extra_fmt_str = None
         self.extra_args = None
 
     def __enter__(self):
         pycom.rgbled(flag_color(self.flag))
         _logger.debug("%s %s ...", self.flag_bin, self.flag_name)
-        self.start_ticks = time.ticks_ms()
+        self.chrono.start()
 
     def __exit__(self, exc_type, exc_value, traceback):
         global failures
-        elapsed = time.ticks_diff(self.start_ticks, time.ticks_ms())
+        elapsed = self.chrono.read_ms()
         pycom.rgbled(0x0)
         if exc_type:
             failures |= self.flag
@@ -149,6 +150,8 @@ def show_boot_flags():
 def quick_test_hw(hw):
 
     _logger.info("Starting hardware quick check")
+    chrono = Timer.Chrono()
+    chrono.start()
 
     with CheckStep(FLAG_MOSFET_PIN, suppress_exception=True):
         mosfet_pin = hw.mosfet_pin()
@@ -180,13 +183,12 @@ def quick_test_hw(hw):
         etemp = hw.etemp()
         _logger.debug("Starting external temp read. Can take up to 750ms.")
         etemp.start_conversion()
-        start_ticks = time.ticks_ms()
+        chrono.reset()
         while True:
             reading = etemp.read_temp_async()
             if reading: break
-            elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
-            if elapsed > 1000:
-                raise TimeoutError("Timeout reading external temp sensor after %d ms" % elapsed)
+            if chrono.read_ms() > 1000:
+                raise TimeoutError("Timeout reading external temp sensor after %d ms" % chrono.read_ms())
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
 
     show_boot_flags()
@@ -198,47 +200,51 @@ def test_lte_ntp(hw, max_drift_secs=4):
     global failures
     _logger.info("Testing LTE connectivity...")
 
+    chrono = Timer.Chrono()
+    chrono.start()
+
     with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
         hw.sync_to_most_reliable_rtc()
+
+    lte = None
 
     try:
         with CheckStep(FLAG_LTE_FW_API):
             from network import LTE
 
-        start_ticks = time.ticks_ms()
         with CheckStep(FLAG_LTE_INIT):
+            _logger.info("Init LTE...")
+            chrono.reset()
             lte = LTE()
-        elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
-        _logger.info("LTE init ok (%d ms). Attaching... (up to 2 minutes)", elapsed)
+            _logger.info("LTE init ok (%d ms)", chrono.read_ms())
     except:
         return failures
 
     try:
         with CheckStep(FLAG_LTE_ATTACH):
-            start_ticks = time.ticks_ms()
+            _logger.info("LTE attaching... (up to 2 minutes)")
+            chrono.reset()
             lte.attach()
             while True:
-                elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
                 if lte.isattached(): break
-                if elapsed > 150 * 1000: raise TimeoutError()
-            _logger.info("LTE attach ok (%d ms). Connecting...", elapsed)
+                if chrono.read_ms() > 150 * 1000: raise TimeoutError()
+            _logger.info("LTE attach ok (%d ms). Connecting...", chrono.read_ms())
 
         with CheckStep(FLAG_LTE_CONNECT):
-            start_ticks = time.ticks_ms()
+            chrono.reset()
             lte.connect()
             while True:
-                elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
                 if lte.isconnected():
                     break
-                elif elapsed > 120 * 1000:
-                    raise TimeoutError("LTE did not attach after %d ms" % elapsed)
-            _logger.info("LTE connect ok (%d ms). Getting time with NTP...", elapsed)
+                elif chrono.read_ms() > 120 * 1000:
+                    raise TimeoutError("LTE did not attach after %d ms" % chrono.read_ms())
+            _logger.info("LTE connect ok (%d ms)", chrono.read_ms())
 
         with CheckStep(FLAG_NTP_FETCH, suppress_exception=True):
             from machine import RTC
             import timeutil
 
-            start_ticks = time.ticks_ms()
+            chrono.reset()
             irtc = RTC()
             ts = timeutil.fetch_ntp_time()
             idrift = ts - time.mktime(irtc.now())
@@ -251,15 +257,23 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 hw.ertc().save_time()
                 _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
             failures &= ~FLAG_TIME_SOURCE   # Clear FLAG_TIME_SOURCE if previously set
-            _logger.info("Got time with NTP (%d ms). Shutting down...", elapsed)
+            _logger.info("Got time with NTP (%d ms). Shutting down...", chrono.read_ms())
 
         with CheckStep(FLAG_LTE_SHUTDOWN):
-            start_ticks = time.ticks_ms()
-            lte.disconnect()
-            lte.dettach()
-            lte.deinit()
-            elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
-            _logger.info("LTE deactivated (%d ms)", elapsed)
+            if lte:
+                try:
+                    if lte.isconnected():
+                        chrono.reset()
+                        lte.disconnect()
+                        _logger.info("LTE disconnected (%d ms)", chrono.read_ms())
+                    if lte.isattached():
+                        chrono.reset()
+                        lte.dettach()
+                        _logger.info("LTE detached (%d ms)", chrono.read_ms())
+                finally:
+                    chrono.reset()
+                    lte.deinit()
+                    _logger.info("LTE deinit-ed (%d ms)", chrono.read_ms())
     except:
         pass
 
