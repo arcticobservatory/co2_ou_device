@@ -205,11 +205,11 @@ def test_lte_ntp(hw, max_drift_secs=4):
         with CheckStep(FLAG_LTE_FW_API):
             from network import LTE
 
-        start_ticks = time.ticks_ms()
         with CheckStep(FLAG_LTE_INIT):
+            start_ticks = time.ticks_ms()
             lte = LTE()
-        elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
-        _logger.info("LTE init ok (%d ms). Attaching... (up to 2 minutes)", elapsed)
+            elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
+            _logger.info("LTE init ok (%d ms). Attaching... (up to 2 minutes)", elapsed)
     except:
         return failures
 

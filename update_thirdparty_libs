@@ -4,17 +4,8 @@ git submodule init
 git submodule update
 
 
-cat > src/lib/ds3231.py <<-END
-# Driver for DS3231 RTC
-#
-# Copied unmodified from the uptyon-aq-monitor repository
-# https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
-#
-# Original file is MIT licenced
-
-END
-cat thirdparty/upython-aq-monitor/lib/ds3231.py >> src/lib/ds3231.py
-
+# From micropython-lib
+# ==================================================
 
 cat > src/lib/logging.py <<-END
 # MicroPython reimplementation of Python's logging library
@@ -29,6 +20,9 @@ END
 cat thirdparty/micropython-lib/logging/logging.py >> src/lib/logging.py
 
 
+# From vanilla MicroPython
+# ==================================================
+
 cat > src/lib/ntptime.py <<-END
 # Simple NTP client implementation
 #
@@ -41,6 +35,9 @@ cat > src/lib/ntptime.py <<-END
 END
 cat thirdparty/micropython/ports/esp8266/modules/ntptime.py >> src/lib/ntptime.py
 
+
+# From Pycom
+# ==================================================
 
 cat > src/lib/onewire.py <<-END
 # Driver onewire bus
@@ -75,3 +72,19 @@ cat > src/lib/sdcard.py <<-END
 
 END
 cat thirdparty/pycom-micropython-sigfox/drivers/sdcard/sdcard.py >> src/lib/sdcard.py
+
+
+# From other repositories
+# ==================================================
+
+cat > src/lib/ds3231.py <<-END
+# Driver for DS3231 RTC
+#
+# Copied unmodified from the uptyon-aq-monitor repository
+# https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
+#
+# Original file is MIT licenced
+
+END
+cat thirdparty/upython-aq-monitor/lib/ds3231.py >> src/lib/ds3231.py
+

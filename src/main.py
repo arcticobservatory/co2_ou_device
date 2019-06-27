@@ -17,6 +17,15 @@ try:
 
     #force_state = co2unit_main.STATE_TAKE_MEASUREMENT
     #co2unit_main.run(hw, force_state, hw_test_only=True)
+
+    import pycom
+    pycom.lte_modem_en_on_boot(True)
+
+    import co2unit_comm
+    co2unit_comm.hello_server_world()
+
+    import sys
+    sys.exit()
     # --------------------------------------------------
 
     co2unit_main.run(hw)
