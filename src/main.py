@@ -13,11 +13,10 @@ try:
 
     # Special testing zone
     # --------------------------------------------------
-    force_mode = None
-    #force_mode = co2unit_main.STATE_HW_TEST_THEN_REPL
+    force_state = None
 
-    #force_mode = co2unit_main.STATE_TAKE_MEASUREMENT
-    #co2unit_main.run(hw, force_mode, exit_to_repl_after=True)
+    #force_state = co2unit_main.STATE_TAKE_MEASUREMENT
+    #co2unit_main.run(hw, force_state, hw_test_only=True, exit_to_repl_after=True)
     # --------------------------------------------------
 
     co2unit_main.run(hw)

@@ -9,11 +9,8 @@ import co2unit_hw
 
 # Normal operation
 STATE_UNKNOWN           = const(0)
-STATE_FULL_SELF_TEST    = const(1)
+STATE_SELF_TEST         = const(1)
 STATE_TAKE_MEASUREMENT  = const(2)
-
-# Special testing modes
-STATE_HW_TEST_THEN_REPL = const(10)
 
 MEASURE_FREQ_MINUTES = 5
 
@@ -24,7 +21,7 @@ def next_state_on_boot(next_state=None):
     else:
         pycom.nvs_set("co2_next", next_state)
 
-def run(hw, force_state=None, exit_to_repl_after=False):
+def run(hw, force_state=None, hw_test_only=False, exit_to_repl_after=False):
 
     try:
         # Determine next state
@@ -51,7 +48,7 @@ def run(hw, force_state=None, exit_to_repl_after=False):
 
         elif reset_cause == machine.PWRON_RESET:
             _logger.info("Power-on reset")
-            next_state = STATE_FULL_SELF_TEST
+            next_state = STATE_SELF_TEST
 
         elif reset_cause == machine.DEEPSLEEP_RESET:
             _logger.info("Woke from deep sleep")
@@ -76,7 +73,7 @@ def run(hw, force_state=None, exit_to_repl_after=False):
         # Turn on peripherals
         hw.power_peripherals(True)
 
-        if next_state == STATE_HW_TEST_THEN_REPL:
+        if next_state == STATE_SELF_TEST:
             _logger.info("Starting quick self test...")
 
             # Reset heartbeat to initialize RGB LED, for test feedback
@@ -92,54 +89,35 @@ def run(hw, force_state=None, exit_to_repl_after=False):
                 import os
                 os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
 
-            _logger.info("Exiting to REPL...")
+            if not hw_test_only:
 
-            import sys
-            sys.exit()
-
-        elif next_state == STATE_FULL_SELF_TEST:
-            _logger.info("Starting self-test and full boot sequence...")
-
-            # Reset heartbeat to initialize RGB LED, for test feedback
-            pycom.heartbeat(True)
-            pycom.heartbeat(False)
-
-            # Do hardware self-test
-            import co2unit_self_test
-            co2unit_self_test.quick_test_hw(hw)
-
-            # If SD card is OK, mount it
-            if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
-                import os
-                os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
-
-            pycom.rgbled(0x222222)
-            _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
-            try:
-                for _ in range(0, 50):
-                    time.sleep_ms(100)
-            except KeyboardInterrupt:
-                _logger.info("Caught interrupt. Exiting to REPL")
+                pycom.rgbled(0x222222)
+                _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
+                try:
+                    for _ in range(0, 50):
+                        time.sleep_ms(100)
+                except KeyboardInterrupt:
+                    _logger.info("Caught interrupt. Exiting to REPL")
+                    pycom.rgbled(0x0)
+                    import sys
+                    sys.exit()
                 pycom.rgbled(0x0)
-                import sys
-                sys.exit()
-            pycom.rgbled(0x0)
 
-            # If SD card is OK, check for updates
-            if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
-                import co2unit_update
-                updates_dir = hw.SDCARD_MOUNT_POINT + "/updates"
-                updates_installed = co2unit_update.check_and_install_updates(updates_dir)
+                # If SD card is OK, check for updates
+                if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
+                    import co2unit_update
+                    updates_dir = hw.SDCARD_MOUNT_POINT + "/updates"
+                    updates_installed = co2unit_update.check_and_install_updates(updates_dir)
 
-                if updates_installed:
-                    # Reboot and restart self test
-                    next_state_on_boot(STATE_FULL_SELF_TEST)
-                    machine.reset()
+                    if updates_installed:
+                        # Reboot and restart self test
+                        next_state_on_boot(STATE_SELF_TEST)
+                        machine.reset()
 
-            # Continue with self test
-            co2unit_self_test.test_lte_ntp(hw)
+                # Continue with self test
+                co2unit_self_test.test_lte_ntp(hw)
 
-            # Turn off all boot options to save power
+            # Set persistent settings
             pycom.wifi_on_boot(False)
             pycom.lte_modem_en_on_boot(False)
             pycom.wdt_on_boot(False)
