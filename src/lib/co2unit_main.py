@@ -21,7 +21,7 @@ def next_state_on_boot(next_state=None):
     else:
         pycom.nvs_set("co2_next", next_state)
 
-def run(hw, force_state=None, hw_test_only=False, exit_to_repl_after=False):
+def run(hw, force_state=None, hw_test_only=False):
 
     try:
         # Determine next state
@@ -89,19 +89,20 @@ def run(hw, force_state=None, hw_test_only=False, exit_to_repl_after=False):
                 import os
                 os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
 
-            if not hw_test_only:
-
-                pycom.rgbled(0x222222)
-                _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
-                try:
-                    for _ in range(0, 50):
-                        time.sleep_ms(100)
-                except KeyboardInterrupt:
-                    _logger.info("Caught interrupt. Exiting to REPL")
-                    pycom.rgbled(0x0)
-                    import sys
-                    sys.exit()
+            # Pause to give user a chance to interrupt
+            pycom.rgbled(0x222222)
+            _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
+            try:
+                for _ in range(0, 50):
+                    time.sleep_ms(100)
+            except KeyboardInterrupt:
+                _logger.info("Caught interrupt. Exiting to REPL")
                 pycom.rgbled(0x0)
+                import sys
+                sys.exit()
+            pycom.rgbled(0x0)
+
+            if not hw_test_only:
 
                 # If SD card is OK, check for updates
                 if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
@@ -144,10 +145,6 @@ def run(hw, force_state=None, hw_test_only=False, exit_to_repl_after=False):
     #except Exception as e:
         # TODO: catch any exception
     finally: pass
-
-    if exit_to_repl_after:
-        import sys
-        sys.exit()
 
     # Go to sleep until next wake-up
     try:
