@@ -22,7 +22,7 @@ try:
     pycom.lte_modem_en_on_boot(True)
 
     import co2unit_comm
-    co2unit_comm.hello_server_world()
+    lte = co2unit_comm.hello_server_world()
 
     import sys
     sys.exit()
