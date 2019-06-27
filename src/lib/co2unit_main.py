@@ -13,8 +13,7 @@ STATE_FULL_SELF_TEST    = const(1)
 STATE_TAKE_MEASUREMENT  = const(2)
 
 # Special testing modes
-STATE_EXIT_TO_REPL      = const(10)
-STATE_HW_TEST_ONLY      = const(11)
+STATE_HW_TEST_THEN_REPL = const(10)
 
 MEASURE_FREQ_MINUTES = 5
 
@@ -41,7 +40,7 @@ def run(hw, force_state=None, exit_to_repl_after=False):
         # Specific reset causes:
         # PWRON_RESET: fresh power on, reset button
         # DEEPSLEEP_RESET: waking from deep sleep
-        # WDT_RESET: machine.reset() in script
+        # WDT_RESET: watchdog timer or machine.reset() in script
         # SOFT_RESET: ctrl+D in REPL
         #
         # Undocumented:
@@ -50,13 +49,16 @@ def run(hw, force_state=None, exit_to_repl_after=False):
         if force_state:
             next_state = force_state
 
-        elif reset_cause in [machine.PWRON_RESET, machine.SOFT_RESET]:
+        elif reset_cause == machine.PWRON_RESET:
+            _logger.info("Power-on reset")
             next_state = STATE_FULL_SELF_TEST
 
         elif reset_cause == machine.DEEPSLEEP_RESET:
+            _logger.info("Woke from deep sleep")
             next_state = STATE_TAKE_MEASUREMENT
 
-        elif reset_cause == machine.WDT_RESET:
+        elif reset_cause in [machine.SOFT_RESET, machine.WDT_RESET]:
+            _logger.info("Soft reset or self-reset")
             next_state = next_state_hint
 
         else:
@@ -74,16 +76,7 @@ def run(hw, force_state=None, exit_to_repl_after=False):
         # Turn on peripherals
         hw.power_peripherals(True)
 
-        if next_state == STATE_EXIT_TO_REPL:
-            _logger.info("Exiting to REPL...")
-
-            import os
-            os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
-
-            import sys
-            sys.exit()
-
-        elif next_state == STATE_HW_TEST_ONLY:
+        if next_state == STATE_HW_TEST_THEN_REPL:
             _logger.info("Starting quick self test...")
 
             # Reset heartbeat to initialize RGB LED, for test feedback
@@ -93,6 +86,16 @@ def run(hw, force_state=None, exit_to_repl_after=False):
             # Do self-test
             import co2unit_self_test
             co2unit_self_test.quick_test_hw(hw)
+
+            # If SD card is OK, mount it
+            if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
+                import os
+                os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
+
+            _logger.info("Exiting to REPL...")
+
+            import sys
+            sys.exit()
 
         elif next_state == STATE_FULL_SELF_TEST:
             _logger.info("Starting self-test and full boot sequence...")
@@ -105,11 +108,25 @@ def run(hw, force_state=None, exit_to_repl_after=False):
             import co2unit_self_test
             co2unit_self_test.quick_test_hw(hw)
 
-            # If SD card is OK, check for updates
+            # If SD card is OK, mount it
             if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
                 import os
                 os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
 
+            pycom.rgbled(0x222222)
+            _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
+            try:
+                for _ in range(0, 50):
+                    time.sleep_ms(100)
+            except KeyboardInterrupt:
+                _logger.info("Caught interrupt. Exiting to REPL")
+                pycom.rgbled(0x0)
+                import sys
+                sys.exit()
+            pycom.rgbled(0x0)
+
+            # If SD card is OK, check for updates
+            if not co2unit_self_test.failures & co2unit_self_test.FLAG_SD_CARD:
                 import co2unit_update
                 updates_dir = hw.SDCARD_MOUNT_POINT + "/updates"
                 updates_installed = co2unit_update.check_and_install_updates(updates_dir)

@@ -102,9 +102,13 @@ def reset_update_for_test(updates_dir, update_subdir):
     co2unit_update.reset_update_for_test("/sd/updates", "update-2019-06-13")
     """
     os.chdir(updates_dir)
-    # Clear the subdirectory
+    _logger.info("Clearing update subdirectory %s", update_subdir)
     fileutil.rm_recursive(update_subdir)
-    # Copy current code to the subdirectory
+    _logger.info("Copying current code to %s", update_subdir)
     fileutil.copy_recursive("/flash", update_subdir+"/flash")
-    # Remove the update status file
-    os.remove(UPDATE_STATE_FILENAME)
+    try:
+        _logger.info("Clearing update state file %s", UPDATE_STATE_FILENAME)
+        os.remove(UPDATE_STATE_FILENAME)
+    except Exception as e:
+        _logger.warning("Error removing state file. %s:%s", type(e).__name__, e)
+        pass
