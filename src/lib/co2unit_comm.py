@@ -1,6 +1,6 @@
 from machine import Timer
+from network import LTE
 import time
-import network
 
 import logging
 _logger = logging.getLogger("co2unit_comm")
@@ -22,7 +22,7 @@ def hello_server_world():
 
         _logger.info("Init LTE...")
         chrono.reset()
-        lte = network.LTE()
+        lte = LTE()
         _logger.info("LTE init ok (%d ms)", chrono.read_ms())
 
         #_logger.info("Doing an LTE reset for paranioa")
