@@ -25,11 +25,12 @@ def hello_server_world():
         lte = network.LTE()
         _logger.info("LTE init ok (%d ms)", chrono.read_ms())
 
-        _logger.info("Doing an LTE reset for paranioa")
-        chrono.reset()
-        lte.reset()
-        _logger.info("LTE reset ok (%d ms). Attaching... (up to 2 minutes)", chrono.read_ms())
+        #_logger.info("Doing an LTE reset for paranioa")
+        #chrono.reset()
+        #lte.reset()
+        #_logger.info("LTE reset ok (%d ms)", chrono.read_ms())
 
+        _logger.info("LTE attaching... (up to 2 minutes)")
         chrono.reset()
         lte.attach()
         while True:
