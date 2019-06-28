@@ -158,7 +158,7 @@ def run(hw, force_state=None, hw_test_only=False):
     measure_time = timeutil.next_even_minutes(MEASURE_FREQ_MINUTES)
     seconds_until_measure = timeutil.seconds_until_time(measure_time)
     _logger.info("Next measurement at %s (T minus %d seconds)", measure_time, seconds_until_measure)
-    _logger.info("Sleeping until next measurement (%d sec)", seconds_until_measure)
+    _logger.info("Sleeping...")
     machine.deepsleep(seconds_until_measure * 1000)
 
     # MicroPython does not resume after deep sleep.
