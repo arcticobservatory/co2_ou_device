@@ -75,9 +75,9 @@ def transmit_data(hw, wdt=None):
     os.chdir(SD_ROOT)
 
     comm_conf = fileutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
-    if not hasattr(comm_conf, "ou_name"):
-        unique_id = ubinascii.hexlify(machine.unique_id())
-        comm_conf.ou_name = "co2unit-%s" % unique_id
+    if not hasattr(comm_conf, "ou_id"):
+        unique_id = ubinascii.hexlify(machine.unique_id()).decode("ascii")
+        comm_conf.ou_id = "co2unit-%s" % unique_id
     _logger.info("comm_conf : %s", comm_conf)
 
     comm_state = fileutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
@@ -129,8 +129,12 @@ def transmit_data(hw, wdt=None):
 
         wdt.feed()
 
-        _logger.info("urequests GET %s", comm_conf.sync_dest)
-        resp = urequests.get(comm_conf.sync_dest)
+        sync_dest = comm_conf.sync_dest
+        ou_id = comm_conf.ou_id
+
+        url = "{}/ou/{}/alive".format(sync_dest, ou_id)
+        _logger.info("urequests POST %s", url)
+        resp = urequests.post(url, data="")
         _logger.info("Response (%s): %s", resp.status_code, resp.text)
 
         for dirname, dirtype in comm_conf.sync_dirs:
