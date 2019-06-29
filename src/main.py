@@ -18,14 +18,22 @@ try:
     #force_state = co2unit_main.STATE_TAKE_MEASUREMENT
     #co2unit_main.run(hw, force_state, hw_test_only=True)
 
-    import pycom
-    pycom.lte_modem_en_on_boot(True)
+    try:
+        import machine
+        wdt = machine.WDT(timeout=30*60*1000)
 
-    import co2unit_comm
-    lte = co2unit_comm.hello_server_world()
+        hw.power_peripherals(True)
+        os.mount(hw.sdcard(), "/sd")
+
+        import co2unit_comm
+        lte = co2unit_comm.transmit_data(hw, wdt)
+
+    finally:
+        wdt.init(30*60*1000)
 
     import sys
     sys.exit()
+
     # --------------------------------------------------
 
     co2unit_main.run(hw)
