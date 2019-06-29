@@ -43,11 +43,6 @@ def ntp_set_time(hw, chrono, max_drift_secs=4):
         _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
     _logger.info("Got time with NTP (%d ms)", chrono.read_ms())
 
-def send_alive(sock, ou_id, wdt):
-    sock.write(b"POST /%s/alive HTTP/1.0\r\n" % (ou_id))
-    sock.write(b"Content-Length: 0\r\n")
-    sock.write(b"\r\n")
-
 def push_sequential_update_sizes(dirname, pushstate):
     dirlist = os.listdir(dirname)
 
@@ -132,37 +127,11 @@ def transmit_data(hw, wdt=None):
         except Exception as e:
             _logger.warning("Unable to set time with NTP. %s: %s", type(e).__name__, e)
 
-        chrono.reset()
-        host, port = comm_conf.sync_dest
-        ai = usocket.getaddrinfo(host, port)
-        _logger.info("addrinfo for %s:%s : %s. (%d ms)", host, port, ai, chrono.read_ms())
-
         wdt.feed()
 
-        _logger.info("urequests GET %s", "http://129.242.17.212:8080/")
-        resp = urequests.get("http://129.242.17.212:8080/")
+        _logger.info("urequests GET %s", comm_conf.sync_dest)
+        resp = urequests.get(comm_conf.sync_dest)
         _logger.info("Response (%s): %s", resp.status_code, resp.text)
-
-        _logger.info("Opening a socket to %s", ai)
-        chrono.reset()
-        ai = ai[0]
-        sock = usocket.socket(*ai[0:3])
-        sock.connect(ai[-1])
-        _logger.info("Connection established (%d ms)", chrono.read_ms())
-
-        wdt.init(60*1000)
-
-        _logger.info("socket GET %s", ai)
-        chrono.reset()
-        sock.write(b"GET / HTTP/1.0\r\n")
-        sock.write(b"Host: %s\r\n" % (host))
-        sock.write(b"Content-Length: 0\r\n")
-        sock.write(b"\r\n")
-
-        response = sock.read()
-
-        _logger.info("Response: %s", response)
-        _logger.info("(%d ms)", chrono.read_ms())
 
         for dirname, dirtype in comm_conf.sync_dirs:
             if dirtype == "push_sequential":
