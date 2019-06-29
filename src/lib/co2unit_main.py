@@ -11,8 +11,11 @@ import co2unit_hw
 STATE_UNKNOWN           = const(0)
 STATE_SELF_TEST         = const(1)
 STATE_TAKE_MEASUREMENT  = const(2)
+STATE_COMMUNICATE       = const(3)
 
 MEASURE_FREQ_MINUTES = 5
+COMM_SCHEDULE_HOUR = None
+COMM_SCHEDULE_MINUTE = 7
 
 def next_state_on_boot(next_state=None):
     if next_state==None:
@@ -52,7 +55,7 @@ def run(hw, force_state=None, hw_test_only=False):
 
         elif reset_cause == machine.DEEPSLEEP_RESET:
             _logger.info("Woke from deep sleep")
-            next_state = STATE_TAKE_MEASUREMENT
+            next_state = next_state_hint
 
         elif reset_cause in [machine.SOFT_RESET, machine.WDT_RESET]:
             _logger.info("Soft reset or self-reset")
@@ -65,7 +68,9 @@ def run(hw, force_state=None, hw_test_only=False):
             _logger.warning("No next state determined. Falling back to default...")
             next_state = STATE_TAKE_MEASUREMENT
 
-        next_state_on_boot(STATE_UNKNOWN)
+        # Save current state so it will retry after a WDT
+        # TODO: Count WDT resets to determine a limit
+        next_state_on_boot(next_state)
 
         # Run chosen state
         # --------------------------------------------------
@@ -142,6 +147,23 @@ def run(hw, force_state=None, hw_test_only=False):
             reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
             co2unit_measure.store_reading(reading, reading_data_dir)
 
+        elif next_state == STATE_COMMUNICATE:
+            _logger.info("Starting communication sequence...")
+
+            try:
+                hw.sync_to_most_reliable_rtc()
+            except Exception as e:
+                _logger.warning("%s: %s", type(e).__name__, e)
+
+            import os
+            os.mount(hw.sdcard(), hw.SDCARD_MOUNT_POINT)
+
+            # TODO: set WDT at beginning for all paths
+            wdt = machine.WDT(timeout=30*60*1000)
+
+            import co2unit_comm
+            lte = co2unit_comm.transmit_data(hw, wdt)
+
     #except Exception as e:
         # TODO: catch any exception
     finally: pass
@@ -157,9 +179,24 @@ def run(hw, force_state=None, hw_test_only=False):
 
     measure_time = timeutil.next_even_minutes(MEASURE_FREQ_MINUTES)
     seconds_until_measure = timeutil.seconds_until_time(measure_time)
-    _logger.info("Next measurement at %s (T minus %d seconds)", measure_time, seconds_until_measure)
-    _logger.info("Sleeping...")
-    machine.deepsleep(seconds_until_measure * 1000)
+
+    comm_time = timeutil.next_even_minutes(10, plus=COMM_SCHEDULE_MINUTE)
+    seconds_until_comm = timeutil.seconds_until_time(comm_time)
+
+    _logger.info("Next measurement  at %s (T minus %d seconds)", measure_time, seconds_until_measure)
+    _logger.info("Next comm         at %s (T minus %d seconds)", comm_time, seconds_until_comm)
+
+    if seconds_until_comm < seconds_until_measure:
+        _logger.info("Comm next")
+        next_state_on_boot(STATE_COMMUNICATE)
+        _logger.info("Sleeping...")
+        machine.deepsleep(seconds_until_comm * 1000)
+
+    else:
+        _logger.info("Measurement next")
+        next_state_on_boot(STATE_TAKE_MEASUREMENT)
+        _logger.info("Sleeping...")
+        machine.deepsleep(seconds_until_measure * 1000)
 
     # MicroPython does not resume after deep sleep.
     # Function will never return.
