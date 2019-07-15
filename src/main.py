@@ -32,16 +32,14 @@ try:
 
     # Defer to co2unit_main
     import co2unit_main
+    next_state = co2unit_main.determine_state_after_reset()
 
-    # Special testing zone
+    # Area for temporary test overrides
     # --------------------------------------------------
-    force_state = None
-
-    #force_state = co2unit_main.STATE_COMMUNICATE
-    #co2unit_main.run(hw, force_state, hw_test_only=True)
+    # next_state = co2unit_main.STATE_COMMUNICATE
     # --------------------------------------------------
 
-    co2unit_main.run(hw)
+    co2unit_main.run(hw, next_state)
 
 except Exception as e:
     import sys
@@ -49,7 +47,9 @@ except Exception as e:
 
     sys.print_exception(e)
     print("Caught exception at top level. Waiting a moment for interrupt before deep sleep.")
-    time.sleep(5)
+    for i in reversed(range(0, 5)):
+        print(i+1)
+        time.sleep(1)
     print("Sleeping...")
     machine.deepsleep(5 * 60 * 1000)
 

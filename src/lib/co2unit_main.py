@@ -6,6 +6,7 @@ import logging
 _logger = logging.getLogger("co2unit_main")
 
 import co2unit_hw
+import pycom_util
 
 # Normal operation
 STATE_UNKNOWN           = const(0)
@@ -17,60 +18,48 @@ MEASURE_FREQ_MINUTES = 5
 COMM_SCHEDULE_HOUR = None
 COMM_SCHEDULE_MINUTE = 7
 
-def next_state_on_boot(next_state=None):
-    if next_state==None:
-        try: return pycom.nvs_get("co2_next")
-        except: return None
-    else:
-        pycom.nvs_set("co2_next", next_state)
+next_state_on_boot = pycom_util.mk_on_boot_fn("co2_wake_next", default=STATE_UNKNOWN)
 
-def run(hw, force_state=None, hw_test_only=False):
+def determine_state_after_reset():
+    # Specific reset causes:
+    # PWRON_RESET: fresh power on, reset button
+    # DEEPSLEEP_RESET: waking from deep sleep
+    # WDT_RESET: watchdog timer or machine.reset() in script
+    # SOFT_RESET: ctrl+D in REPL
+    #
+    # Undocumented:
+    # SW_CPU_RESET (0xc): core dump crash
+    reset_cause = machine.reset_cause()
+
+    if reset_cause == machine.PWRON_RESET:
+        _logger.info("Power-on reset")
+        _logger.info("Do self test")
+        return STATE_SELF_TEST
+
+    if reset_cause in [machine.SOFT_RESET, machine.WDT_RESET]:
+        _logger.info("Soft reset or self-reset")
+        _logger.info("Checking scheduled action...")
+        return STATE_UNKNOWN
+
+    if reset_cause == machine.DEEPSLEEP_RESET:
+        _logger.info("Woke up from deep sleep")
+        scheduled = next_state_on_boot()
+        if scheduled == STATE_UNKNOWN:
+            _logger.warning("Woke from deep sleep, but no activity scheduled. Possible crash.")
+        return scheduled
+
+    _logger.warning("Unknown wake circumstances")
+    return STATE_UNKNOWN
+
+def run(hw, next_state, hw_test_only=False):
 
     try:
-        # Determine next state
-        # --------------------------------------------------
+        # Clear wake hints so we can detect a crash
+        next_state_on_boot(erase=True)
 
-        reset_cause = machine.reset_cause()
-        wake_reason = machine.wake_reason()
-        next_state_hint = next_state_on_boot()
-
-        _logger.info("Start conditions: reset_cause 0x%02x; wake_reason %s; next_state_hint %s; force_state %s;",
-                reset_cause, wake_reason, next_state_hint, force_state)
-
-        # Specific reset causes:
-        # PWRON_RESET: fresh power on, reset button
-        # DEEPSLEEP_RESET: waking from deep sleep
-        # WDT_RESET: watchdog timer or machine.reset() in script
-        # SOFT_RESET: ctrl+D in REPL
-        #
-        # Undocumented:
-        # SW_CPU_RESET (0xc): core dump crash
-
-        if force_state:
-            next_state = force_state
-
-        elif reset_cause == machine.PWRON_RESET:
-            _logger.info("Power-on reset")
-            next_state = STATE_SELF_TEST
-
-        elif reset_cause == machine.DEEPSLEEP_RESET:
-            _logger.info("Woke from deep sleep")
-            next_state = next_state_hint
-
-        elif reset_cause in [machine.SOFT_RESET, machine.WDT_RESET]:
-            _logger.info("Soft reset or self-reset")
-            next_state = next_state_hint
-
-        else:
-            _logger.warning("Unexpected start conditions")
-
-        if not next_state:
-            _logger.warning("No next state determined. Falling back to default...")
+        if next_state == STATE_UNKNOWN:
+            _logger.warning("Unknown start state. Defaulting to measurement.")
             next_state = STATE_TAKE_MEASUREMENT
-
-        # Save current state so it will retry after a WDT
-        # TODO: Count WDT resets to determine a limit
-        next_state_on_boot(next_state)
 
         # Run chosen state
         # --------------------------------------------------
