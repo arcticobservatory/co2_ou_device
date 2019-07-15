@@ -17,6 +17,8 @@ STATE_SCHEDULE          = const(4)
 STATE_TAKE_MEASUREMENT  = const(5)
 STATE_COMMUNICATE       = const(6)
 
+SCHED_MINUTES   = const(0)
+
 MEASURE_FREQ_MINUTES = 5
 COMM_SCHEDULE_HOUR = None
 COMM_SCHEDULE_MINUTE = 7
@@ -36,7 +38,6 @@ def determine_state_after_reset():
 
     if reset_cause == machine.PWRON_RESET:
         _logger.info("Power-on reset")
-        _logger.info("Do self test")
         return STATE_QUICK_HW_TEST
 
     if reset_cause in [machine.SOFT_RESET, machine.WDT_RESET, machine.DEEPSLEEP_RESET]:
@@ -55,26 +56,33 @@ def determine_state_after_reset():
     return STATE_UNKNOWN
 
 def schedule_wake():
+    schedule = [
+            [SCHED_MINUTES, 5, 0, STATE_TAKE_MEASUREMENT],
+            [SCHED_MINUTES, 10, 7, STATE_COMMUNICATE],
+            ]
+
     import timeutil
 
-    measure_time = timeutil.next_even_minutes(MEASURE_FREQ_MINUTES)
-    seconds_until_measure = timeutil.seconds_until_time(measure_time)
+    countdowns = []
+    for item in schedule:
+        sched_type = item[0]
+        if sched_type == SCHED_MINUTES:
+            _, minutes, offset, action = item
+            item_time = timeutil.next_even_minutes(minutes, plus=offset)
+        else:
+            raise Exception("Unknown scedule type {}".format(sched_type))
 
-    comm_time = timeutil.next_even_minutes(10, plus=COMM_SCHEDULE_MINUTE)
-    seconds_until_comm = timeutil.seconds_until_time(comm_time)
+        seconds_left = timeutil.seconds_until_time(item_time)
+        countdowns.append([seconds_left, item_time, action])
 
-    _logger.info("Next measurement  at %s (T minus %d seconds)", measure_time, seconds_until_measure)
-    _logger.info("Next comm         at %s (T minus %d seconds)", comm_time, seconds_until_comm)
+    countdowns.sort(key=lambda x:x[0])
 
-    if seconds_until_comm < seconds_until_measure:
-        _logger.info("Comm next")
-        next_state_on_boot(STATE_COMMUNICATE)
-        return seconds_until_comm * 1000
+    for c in countdowns:
+        _logger.info("At {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
 
-    else:
-        _logger.info("Measurement next")
-        next_state_on_boot(STATE_TAKE_MEASUREMENT)
-        return seconds_until_measure * 1000
+    sleep_sec, _, action = countdowns[0]
+    next_state_on_boot(action)
+    return sleep_sec * 1000
 
 def run(hw, next_state, hw_test_only=False):
 
@@ -105,7 +113,6 @@ def run(hw, next_state, hw_test_only=False):
             next_state_on_boot(STATE_UPDATE)
 
         elif next_state == STATE_LTE_TEST:
-
             _logger.info("Starting LTE test...")
             co2unit_self_test.test_lte_ntp(hw)
             next_state_on_boot(STATE_SCHEDULE)
@@ -119,14 +126,14 @@ def run(hw, next_state, hw_test_only=False):
 
         return 0
 
-    elif next_state == STATE_SCHEDULE:
-        _logger.info("Scheduling only....")
-        return schedule_wake()
-
     try:
         hw.sync_to_most_reliable_rtc()
     except Exception as e:
         _logger.warning(e)
+
+    if next_state == STATE_SCHEDULE:
+        _logger.info("Scheduling only....")
+        return schedule_wake()
 
     if next_state == STATE_UPDATE:
         _logger.info("Starting check for updates...")
