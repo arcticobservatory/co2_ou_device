@@ -28,8 +28,8 @@ def nvs_erase(key):
     except:
         return None
 
-def mk_on_boot_fn(key, default=None):
-    def on_boot_fn(value=None, erase=False):
+def mk_on_boot_fn(key):
+    def on_boot_fn(value=None, default=None, erase=False):
         if erase:
             return nvs_erase(key)
         elif value == None:

@@ -36,21 +36,35 @@ try:
 
     # Area for temporary test overrides
     # --------------------------------------------------
+    # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # --------------------------------------------------
 
-    co2unit_main.run(hw, next_state)
+    sleep_ms = co2unit_main.run(hw, next_state)
+
+    hw.prepare_for_shutdown()
+    if not sleep_ms:
+        print("Resetting...")
+        machine.reset()
+    else:
+        print("Sleeping...")
+        machine.deepsleep(sleep_ms)
 
 except Exception as e:
     import sys
     import time
 
     sys.print_exception(e)
-    print("Caught exception at top level. Waiting a moment for interrupt before deep sleep.")
+    print("Caught exception at top level")
+
+    print("Sleeping in ", end="")
     for i in reversed(range(0, 5)):
-        print(i+1)
+        print(i+1, end="")
+        print(" ", end="")
         time.sleep(1)
+
     print("Sleeping...")
+    if hw: hw.prepare_for_shutdown()
     machine.deepsleep(5 * 60 * 1000)
 
 except KeyboardInterrupt as e:

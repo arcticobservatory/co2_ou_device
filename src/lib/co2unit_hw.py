@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 from machine import Pin
@@ -33,6 +34,7 @@ class Co2UnitHw(object):
         self._flash_pin = None
         self._co2 = None
         self._etemp = None
+        self.sd_mounted = False
 
         try:
             pinset = pycom.nvs_get("co2unit_pinset")
@@ -154,6 +156,28 @@ class Co2UnitHw(object):
             ertc.save_time()
         else:
             raise Exception("Both RTCs reset; no reliable time source; %s" % (itime,))
+
+    def mount_sd_card(self):
+        if not self.sd_mounted:
+            os.mount(self.sdcard(), self.SDCARD_MOUNT_POINT)
+        else:
+            _logger.warning("SD card already mounted")
+        self.sd_mounted = True
+
+    def prepare_for_shutdown(self):
+        if self.sd_mounted:
+            _logger.info("Unmounting SD card")
+            try:
+                os.unmount(self.SDCARD_MOUNT_POINT)
+            except:
+                _logger.exception("Could not mount SD card")
+
+        _logger.info("Cutting power to peripherals")
+        try:
+            self.power_peripherals(False)
+        except:
+            _logger.exception("Could not cut power to peripherals")
+
 
 class SdCardWrapper(sdcard.SDCard):
     """
