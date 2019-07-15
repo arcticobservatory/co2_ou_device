@@ -1,6 +1,6 @@
 import logging
 _logger = logging.getLogger("co2unit_update")
-_logger.setLevel(logging.DEBUG)
+#_logger.setLevel(logging.DEBUG)
 
 import os
 import fileutil

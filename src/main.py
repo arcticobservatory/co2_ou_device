@@ -1,4 +1,26 @@
+"""
+Top level shell file
+
+This file should contain as little logic as possible.
+Its goal is to never lose control of the device into an unrecoverable state (like the REPL).
+
+- The unit should never crash out to the REPL except for a KeyboardInterrupt.
+- All other exceptions should result in going back to sleep for a few minutes
+  and then trying again.
+- In the worst case scenario, the watchdog timer (WDT) will cause a reset.
+
+All allocation and logic should defer to co2unit_main.py.
+The exception of this is to set the hw variable to make it easier to work with
+if we do exit to the REPL.
+
+Note that the hw variable does not actually touch the hardware unless we start
+accessing its members.
+"""
+
 try:
+    import machine
+    wdt = machine.WDT(timeout=5*60*1000)
+
     # Get handle to hardware
     import co2unit_hw
     hw = co2unit_hw.Co2UnitHw()
@@ -21,8 +43,20 @@ try:
 
     co2unit_main.run(hw)
 
-#except Exception as e:
-    # TODO: Catch any exception
-finally:
+except Exception as e:
+    import sys
+    import time
+
+    sys.print_exception(e)
+    print("Caught exception at top level. Waiting a moment for interrupt before deep sleep.")
+    time.sleep(5)
+    print("Sleeping...")
+    machine.deepsleep(5 * 60 * 1000)
+
+except KeyboardInterrupt as e:
+    import sys
     import machine
+
+    sys.print_exception(e)
+    print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
     wdt = machine.WDT(timeout=30*60*1000)
