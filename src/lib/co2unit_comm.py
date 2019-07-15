@@ -84,6 +84,10 @@ def transmit_data(hw, wdt=None):
     comm_state = fileutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
     _logger.info("comm_state: %s", comm_state)
 
+    if not comm_conf.sync_dest:
+        _logger.error("No sync destination")
+        return
+
     try:
         _logger.info("Giving LTE time to boot before initializing it...")
         time.sleep_ms(1000)

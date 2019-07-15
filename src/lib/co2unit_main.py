@@ -63,6 +63,8 @@ def schedule_wake():
 
     import timeutil
 
+    _logger.info("Now %s", time.gmtime())
+
     countdowns = []
     for item in schedule:
         sched_type = item[0]
