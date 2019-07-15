@@ -14,9 +14,13 @@ _logger = logging.getLogger("co2unit_comm")
 
 SD_ROOT = "/sd"
 
+UNIQUE_ID = ubinascii.hexlify(machine.unique_id()).decode("ascii")
+UNIQUE_ID = "co2unit-%s" % UNIQUE_ID
+
 COMM_CONF_PATH = "ou-comm-config.json"
 COMM_CONF_DEFAULTS = {
-        "sync_dest": [None, 8080],
+        "ou_id": UNIQUE_ID,
+        "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
         "sync_dirs": [
             ["data/readings", "push_sequential"]
             ],
@@ -75,9 +79,6 @@ def transmit_data(hw, wdt=None):
     os.chdir(SD_ROOT)
 
     comm_conf = fileutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
-    if not hasattr(comm_conf, "ou_id"):
-        unique_id = ubinascii.hexlify(machine.unique_id()).decode("ascii")
-        comm_conf.ou_id = "co2unit-%s" % unique_id
     _logger.info("comm_conf : %s", comm_conf)
 
     comm_state = fileutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
