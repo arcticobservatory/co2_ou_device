@@ -18,6 +18,7 @@ STATE_TAKE_MEASUREMENT  = const(5)
 STATE_COMMUNICATE       = const(6)
 
 SCHED_MINUTES   = const(0)
+SCHED_DAILY     = const(1)
 
 MEASURE_FREQ_MINUTES = 5
 COMM_SCHEDULE_HOUR = None
@@ -59,6 +60,13 @@ def schedule_wake():
     schedule = [
             [SCHED_MINUTES, 5, 0, STATE_TAKE_MEASUREMENT],
             [SCHED_MINUTES, 10, 7, STATE_COMMUNICATE],
+            [SCHED_DAILY, 8, 02, STATE_COMMUNICATE],
+            [SCHED_DAILY, 9, 12, STATE_COMMUNICATE],
+            [SCHED_DAILY, 10, 22, STATE_COMMUNICATE],
+            [SCHED_DAILY, 17, 52, STATE_TAKE_MEASUREMENT],
+            [SCHED_DAILY, 17, 53, STATE_COMMUNICATE],
+            [SCHED_DAILY, 19, 33, STATE_COMMUNICATE],
+            [SCHED_DAILY, 19, 43, STATE_COMMUNICATE],
             ]
 
     import timeutil
@@ -71,6 +79,9 @@ def schedule_wake():
         if sched_type == SCHED_MINUTES:
             _, minutes, offset, action = item
             item_time = timeutil.next_even_minutes(minutes, plus=offset)
+        elif sched_type == SCHED_DAILY:
+            _, hour, minutes, action = item
+            item_time = timeutil.next_time_of_day(hour, minutes)
         else:
             raise Exception("Unknown scedule type {}".format(sched_type))
 
@@ -80,7 +91,7 @@ def schedule_wake():
     countdowns.sort(key=lambda x:x[0])
 
     for c in countdowns:
-        _logger.info("At {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
+        _logger.info("At  {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
 
     sleep_sec, _, action = countdowns[0]
     next_state_on_boot(action)

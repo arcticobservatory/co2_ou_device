@@ -16,23 +16,22 @@ def fetch_ntp_time():
 
 def next_even_minutes(minutes_divisor, plus=0):
     tt = time.gmtime()
-    minutes = tt[4]
-    next_minutes = (minutes // minutes_divisor) * minutes_divisor + plus
-    if next_minutes <= minutes:
+    yy, mo, dd, hh, mm = tt[0:5]
+    next_minutes = (mm // minutes_divisor) * minutes_divisor + plus
+    if next_minutes <= mm:
         next_minutes += minutes_divisor
     # time.mktime() will handle minutes overflow as you would expect:
-    # 14:70 -> 15:10
-    next_tt = tt[0:4] + (next_minutes, 0, 0, 0)
+    # e.g. 14:70 -> 15:10
+    next_tt = (yy, mo, dd, hh, next_minutes, 0, 0, 0)
     return next_tt
 
 def next_time_of_day(hour, minute):
     tt = time.gmtime()
-    hh = tt[3]
-    mm = tt[4]
-    if mm < minute:
-        next_tt = tt[0:2] + (hh, minute, 0, 0, 0)
+    yy, mo, dd, hh, mm = tt[0:5]
+    if hh <= hour and mm < minute:
+        next_tt = (yy, mo, dd, hour, minute, 0, 0, 0)
     else:
-        next_tt = tt[0:3] + (hh+1, minute, 0, 0, 0)
+        next_tt = (yy, mo, dd+1, hour, minute, 0, 0, 0)
 
     return next_tt
 
