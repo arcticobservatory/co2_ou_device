@@ -6,6 +6,7 @@ from machine import Pin
 from machine import SPI
 from machine import UART
 from machine import RTC
+import machine
 import pycom
 
 from ds3231 import DS3231
@@ -129,7 +130,7 @@ class Co2UnitHw(object):
             return mosfet_pin(value)
 
     def sync_to_most_reliable_rtc(self, max_drift_secs=4):
-        irtc = RTC()
+        irtc = machine.RTC()
         ertc = self.ertc()
 
         itime = irtc.now()
@@ -156,6 +157,20 @@ class Co2UnitHw(object):
             ertc.save_time()
         else:
             raise Exception("Both RTCs reset; no reliable time source; %s" % (itime,))
+
+    def set_both_rtcs(self, ts, max_drift_secs=4):
+        irtc = machine.RTC()
+        ertc = self.ertc()
+
+        idrift = ts - time.mktime(irtc.now())
+
+        if abs(idrift) < max_drift_secs:
+            _logger.info("Drift: %s s; within threshold (%d s)", idrift, max_drift_secs)
+        else:
+            tt = time.gmtime(ts)
+            irtc.init(tt)
+            ertc.save_time()
+            _logger.info("RTCs set %s; drift was %d s", tt, idrift)
 
     def mount_sd_card(self):
         if not self.sd_mounted:

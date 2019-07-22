@@ -97,7 +97,7 @@ def schedule_wake():
     next_state_on_boot(action)
     return sleep_sec * 1000
 
-def run(hw, next_state, hw_test_only=False):
+def run(hw, next_state):
 
     # Clear wake hints so we can detect a crash
     next_state_on_boot(erase=True)

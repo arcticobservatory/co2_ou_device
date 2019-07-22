@@ -33,19 +33,84 @@ COMM_STATE_DEFAULTS = {
         "sync_states": {}
         }
 
-def ntp_set_time(hw, chrono, max_drift_secs=4):
-    chrono.reset()
-    ts = timeutil.fetch_ntp_time()
-    idrift = ts - time.mktime(time.gmtime())
-    if abs(idrift) < max_drift_secs:
-        _logger.info("Drift from NTP: %s s; within threshold (%d s)", idrift, max_drift_secs)
-    else:
-        ntp_tuple = time.gmtime(ts)
-        irtc = machine.RTC()
-        irtc.init(ntp_tuple)
-        hw.ertc().save_time()
-        _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
-    _logger.info("Got time with NTP (%d ms)", chrono.read_ms())
+class TimedStep(object):
+    def __init__(self, chrono, desc="", suppress_exception=False):
+        self.chrono = chrono
+        self.desc = desc
+        self.suppress_exception = suppress_exception
+
+    def __enter__(self):
+        self.chrono.reset()
+        _logger.info("%s ...", self.desc)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        elapsed = self.chrono.read_ms()
+        if exc_type:
+            _logger.warning("%s failed (%d ms). %s: %s", self.desc, elapsed, exc_type.__name__, exc_value)
+            if self.suppress_exception:
+                return True
+        else:
+            _logger.info("%s OK (%d ms)", self.desc, elapsed)
+
+def lte_connect(wdt):
+    chrono = machine.Timer.Chrono()
+    chrono.start()
+
+    # Set watchdog timer to reboot if LTE init hangs.
+    # LTE init can sometimes hang indefinitely.
+    # When successful it usually takes around 3-6 seconds.
+    wdt.init(10*1000)
+
+    with TimedStep(chrono, "LTE init"):
+        lte = network.LTE()
+        wdt.feed()
+
+    with TimedStep(chrono, "LTE attach"):
+        lte.attach()
+        while True:
+            wdt.feed()
+            if lte.isattached(): break
+            if chrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
+            time.sleep_ms(50)
+
+    with TimedStep(chrono, "LTE connect"):
+        lte.connect()
+        while True:
+            wdt.feed()
+            if lte.isconnected(): break
+            if chrono.read_ms() > 120 * 1000: raise TimeoutError("Timeout during LTE connect")
+            time.sleep_ms(50)
+
+    return lte
+
+def lte_deinit(lte, wdt):
+    if not lte: return
+
+    chrono = machine.Timer.Chrono()
+    chrono.start()
+
+    # LTE disconnect often takes a few seconds
+    # Set a more forgiving watchdog timer timeout
+    wdt.init(20*1000)
+
+    try:
+        if lte.isconnected():
+            with TimedStep(chrono, "LTE disconnect"):
+                lte.disconnect()
+
+        wdt.feed()
+
+        if lte.isattached():
+            with TimedStep(chrono, "LTE detach"):
+                lte.detach()
+
+        wdt.feed()
+
+    finally:
+        with TimedStep(chrono, "LTE deinit"):
+            lte.deinit()
+
+        wdt.feed()
 
 def push_sequential_update_sizes(dirname, pushstate):
     dirlist = os.listdir(dirname)
@@ -62,19 +127,15 @@ def push_sequential_update_sizes(dirname, pushstate):
         pushstate[key] = [fname, progress, totalsize]
         _logger.info("push_sequential dir %s: %09s: %20s bytes %09s of %09s", dirname, key, fname, progress, totalsize)
 
-
 def transmit_data(hw, wdt=None):
     """ Transmits data
 
     - SD card must be mounted before calling
     """
-    _logger.info("Checking data")
-
     chrono = machine.Timer.Chrono()
     chrono.start()
 
     lte = None
-    sock = None
 
     os.chdir(SD_ROOT)
 
@@ -89,48 +150,18 @@ def transmit_data(hw, wdt=None):
         return
 
     try:
+        # LTE init seems to be successful more often if we give it time first
         _logger.info("Giving LTE time to boot before initializing it...")
         time.sleep_ms(1000)
 
-        # LTE init can sometimes hang indefinitely
-        # When successful it usually takes around 3-6 seconds
+        with TimedStep(chrono, "LTE init and connect"):
+            lte = lte_connect(wdt)
+
         wdt.init(10*1000)
 
-        _logger.info("Init LTE...")
-        chrono.reset()
-        lte = network.LTE()
-        _logger.info("LTE init ok (%d ms)", chrono.read_ms())
-
-        wdt.feed()
-
-        #_logger.info("Doing an LTE reset for paranioa")
-        #chrono.reset()
-        #lte.reset()
-        #_logger.info("LTE reset ok (%d ms)", chrono.read_ms())
-
-        _logger.info("LTE attaching... (up to 2 minutes)")
-        chrono.reset()
-        lte.attach()
-        while True:
-            wdt.feed()
-            if lte.isattached(): break
-            if chrono.read_ms() > 150 * 1000: raise TimeoutError()
-        _logger.info("LTE attach ok (%d ms). Connecting...", chrono.read_ms())
-
-        chrono.reset()
-        lte.connect()
-        while True:
-            wdt.feed()
-            if lte.isconnected():
-                break
-            elif chrono.read_ms() > 120 * 1000:
-                raise TimeoutError("LTE did not attach after %d ms" % chrono.read_ms())
-        _logger.info("LTE connect ok (%d ms)", chrono.read_ms())
-
-        try:
-            ntp_set_time(hw, chrono, comm_conf.ntp_max_drift_secs)
-        except Exception as e:
-            _logger.warning("Unable to set time with NTP. %s: %s", type(e).__name__, e)
+        with TimedStep(chrono, "Set time from NTP", suppress_exception=True):
+            ts = timeutil.fetch_ntp_time()
+            hw.set_both_rtcs(ts)
 
         wdt.feed()
 
@@ -165,32 +196,6 @@ def transmit_data(hw, wdt=None):
         wdt.feed()
 
     finally:
-        if sock:
-            try:
-                sock.close()
-            except Exception as e:
-                _logger.info("Could not close socket. %s: %s", type(e).__name__, e)
-
-        if lte:
-            try:
-                if lte.isconnected():
-                    chrono.reset()
-                    lte.disconnect()
-                    _logger.info("LTE disconnected (%d ms)", chrono.read_ms())
-
-                wdt.feed()
-
-                if lte.isattached():
-                    chrono.reset()
-                    lte.dettach()
-                    _logger.info("LTE detached (%d ms)", chrono.read_ms())
-
-                wdt.feed()
-            finally:
-                chrono.reset()
-                lte.deinit()
-                _logger.info("LTE deinit-ed (%d ms)", chrono.read_ms())
-
-                wdt.feed()
+        lte_deinit(lte, wdt)
 
     return lte
