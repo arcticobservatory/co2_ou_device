@@ -41,6 +41,7 @@ try:
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
+    # raise Exception("Dummy Exception")
     # --------------------------------------------------
 
     sleep_ms = co2unit_main.run(hw, next_state)
@@ -57,17 +58,25 @@ except Exception as e:
     import sys
     import time
 
-    sys.print_exception(e)
     print("Caught exception at top level")
+    sys.print_exception(e)
 
-    print("Sleeping in ", end="")
-    for i in reversed(range(0, 5)):
-        print(i+1, end="")
-        print(" ", end="")
-        time.sleep_ms(1000)
+    # Extend watchdog timer in case the user does a KeyboardInterrupt
+    wdt = machine.WDT(timeout=30*60*1000)
+
+    try:
+        print("Sleeping in ", end="")
+        for i in reversed(range(0, 10)):
+            print(i+1, end="")
+            print(" ", end="")
+            for _ in range(0, 10):
+                time.sleep_ms(100)
+    finally:
+        print()
+
+    if hw: hw.prepare_for_shutdown()
 
     print("Sleeping...")
-    if hw: hw.prepare_for_shutdown()
     machine.deepsleep(5 * 60 * 1000)
 
 except KeyboardInterrupt as e:
