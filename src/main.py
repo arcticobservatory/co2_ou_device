@@ -48,7 +48,9 @@ try:
 
     hw.prepare_for_shutdown()
     if not sleep_ms:
+        import time
         print("Resetting...")
+        time.sleep_ms(5)    # Give a moment for output buffer to flush
         machine.reset()
     else:
         print("Sleeping...")
