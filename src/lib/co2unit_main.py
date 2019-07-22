@@ -124,12 +124,12 @@ def run(hw, next_state):
         if next_state == STATE_QUICK_HW_TEST:
             _logger.info("Starting quick self test...")
             co2unit_self_test.quick_test_hw(hw)
-            next_state_on_boot(STATE_UPDATE)
+            next_state_on_boot(STATE_LTE_TEST)
 
         elif next_state == STATE_LTE_TEST:
             _logger.info("Starting LTE test...")
             co2unit_self_test.test_lte_ntp(hw)
-            next_state_on_boot(STATE_SCHEDULE)
+            next_state_on_boot(STATE_UPDATE)
 
         # Pause to give user a chance to interrupt
         pycom.rgbled(0x0)
@@ -175,13 +175,11 @@ def run(hw, next_state):
         updates_installed = co2unit_update.check_and_install_updates(updates_dir)
 
         if updates_installed:
-            _logger.info("Updates installed, rebooting to hardware test")
-            next_state_on_boot(STATE_QUICK_HW_TEST)
-            return 0
+            _logger.info("Updates installed")
         else:
-            _logger.info("No updates installed, continuing to LTE test")
-            next_state_on_boot(STATE_LTE_TEST)
-            return 0
+            _logger.info("No updates installed")
+        next_state_on_boot(STATE_SCHEDULE)
+        return 0
 
     elif next_state == STATE_TAKE_MEASUREMENT:
         _logger.info("Starting measurement sequence...")
