@@ -1,7 +1,7 @@
-from machine import Timer
 import explorir
 import fileutil
 import logging
+import machine
 import os
 import time
 
@@ -11,8 +11,10 @@ _logger = logging.getLogger("co2unit_measure")
 READING_FILE_SIZE_CUTOFF = const(100 * 1000)
 
 def read_sensors(hw):
+    wdt = machine.WDT(timeout=10*1000)
+
     rtime = time.gmtime()
-    chrono = Timer.Chrono()
+    chrono = machine.Timer.Chrono()
     chrono.start()
 
     # Notes
@@ -67,6 +69,7 @@ def read_sensors(hw):
     # Do throwaway reads of CO2 while waiting for temperature
     try_read_co2_sensor()
     time.sleep_ms(500)
+    wdt.feed()
     try_read_co2_sensor()
 
     # Read temperature
@@ -80,12 +83,14 @@ def read_sensors(hw):
                 _logger.error("Timeout reading external temp sensor after %d ms", etemp_ms)
                 break
             time.sleep_ms(5)
+            wdt.feed()
     except Exception as e:
         _logger.error("Unexpected error waiting for etemp reading. %s: %s", type(e).__name__, e)
 
     # Do more reads of CO2 sensor
     for _ in range(co2_i, len(co2_readings)):
         time.sleep_ms(500)
+        wdt.feed()
         try_read_co2_sensor()
     # co2_ms did not propagate like the others, so get it again
     co2_ms = chrono.read_ms()

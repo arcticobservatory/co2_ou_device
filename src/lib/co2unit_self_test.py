@@ -153,6 +153,7 @@ def show_boot_flags():
         _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
 
 def quick_test_hw(hw):
+    wdt = machine.WDT(timeout=10*1000)
 
     _logger.info("Starting hardware quick check")
     chrono = machine.Timer.Chrono()
@@ -162,6 +163,7 @@ def quick_test_hw(hw):
         mosfet_pin = hw.mosfet_pin()
         if mosfet_pin:
             _logger.info("Mosfet pin state: %s", mosfet_pin())
+        wdt.feed()
 
     with CheckStep(FLAG_SD_CARD, suppress_exception=True):
         import os
@@ -171,11 +173,13 @@ def quick_test_hw(hw):
         contents = os.listdir(mountpoint)
         os.unmount(mountpoint)
         _logger.info("SD card OK. Contents: %s", contents)
+        wdt.feed()
 
     with CheckStep(FLAG_ERTC, suppress_exception=True):
         ertc = hw.ertc()
         time_tuple = ertc.get_time()
         _logger.info("External RTC ok. Current time: %s", time_tuple)
+        wdt.feed()
 
     with CheckStep(FLAG_CO2, suppress_exception=True):
         import explorir
@@ -183,6 +187,7 @@ def quick_test_hw(hw):
         co2.set_mode(explorir.EXPLORIR_MODE_POLLING)
         reading = co2.read_co2()
         _logger.info("CO2 sensor ok. Current level: %d ppm", reading)
+        wdt.feed()
 
     with CheckStep(FLAG_ETEMP, suppress_exception=True):
         etemp = hw.etemp()
@@ -195,13 +200,14 @@ def quick_test_hw(hw):
             if chrono.read_ms() > 1000:
                 raise TimeoutError("Timeout reading external temp sensor after %d ms" % chrono.read_ms())
         _logger.info("External temp sensor ok. Current temp: %s C", reading)
+        wdt.feed()
 
     show_boot_flags()
     _logger.info("Failures after quick hardware check: {:#018b}".format(failures))
     display_errors_led()
+    wdt.feed()
 
 def test_lte_ntp(hw, max_drift_secs=4):
-
     wdt = machine.WDT(timeout=10*1000)
 
     global failures
