@@ -6,6 +6,7 @@ import pycom
 
 
 _logger = logging.getLogger("co2unit_self_test")
+#_logger.setLevel(logging.DEBUG)
 
 FLAG_MOSFET_PIN     = const(1<<0)
 FLAG_SD_CARD        = const(1<<1)
@@ -67,7 +68,7 @@ def flag_name(flag):
     elif flag==FLAG_NTP_FETCH      : return "FLAG_NTP_FETCH"
     elif flag==FLAG_LTE_SHUTDOWN   : return "FLAG_LTE_SHUTDOWN"
 
-    else: raise Exception("Unknown flag {:#018b}".format(flag))
+    else: raise Exception("Unknown flag 0x%04x" % flag)
 
 def blink_led(color, on_ms=100, off_ms=100, total_ms=1000):
     loops = total_ms // (on_ms+off_ms)
@@ -97,7 +98,7 @@ def display_errors_led(flags = None):
                 color = flag_color(flag)
                 if flags & flag and color:
                     pycom.rgbled(color)
-                    _logger.debug("showing failure {:#018b}, color {:#08x}, {}".format(flag, color, flag_name(flag)))
+                    _logger.debug("showing failure 0x%04x, color 0x%08x, %s", flag, color, flag_name(flag))
                     time.sleep_ms(1000)
                     wdt.feed()
             pycom.rgbled(0x0)
@@ -118,7 +119,7 @@ def display_errors_led(flags = None):
 class CheckStep(object):
     def __init__(self, flag, suppress_exception=False):
         self.flag = flag
-        self.flag_bin = "{flag:#0{width}b}".format(flag=flag, width=FLAG_MAX_SHIFT+2)
+        self.flag_hex = "0x%04x" % flag
         self.flag_name = "{:20}".format(flag_name(flag))
         self.suppress_exception = suppress_exception
         self.chrono = machine.Timer.Chrono()
@@ -127,7 +128,7 @@ class CheckStep(object):
 
     def __enter__(self):
         pycom.rgbled(flag_color(self.flag))
-        _logger.debug("%s %s ...", self.flag_bin, self.flag_name)
+        _logger.debug("%s %s ...", self.flag_hex, self.flag_name)
         self.chrono.start()
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -136,12 +137,12 @@ class CheckStep(object):
         pycom.rgbled(0x0)
         if exc_type:
             failures |= self.flag
-            _logger.warning(" %s %s failed (%d ms). %s: %s", self.flag_bin, self.flag_name, elapsed, exc_type, exc_value)
+            _logger.warning(" %s %s failed (%d ms). %s: %s", self.flag_hex, self.flag_name, elapsed, exc_type, exc_value)
             if self.suppress_exception:
                 return True
         else:
             failures &= ~self.flag
-            _logger.debug("%s %s OK (%d ms)", self.flag_bin, self.flag_name, elapsed)
+            _logger.debug("%s %s OK (%d ms)", self.flag_hex, self.flag_name, elapsed)
 
 def show_boot_flags():
     _logger.info("pycom.wifi_on_boot():         %s", pycom.wifi_on_boot())
@@ -149,8 +150,9 @@ def show_boot_flags():
         # These methods are not available on old firmware versions
         # If they are missing, we need to upgrade the Pycom firmware
         _logger.info("pycom.lte_modem_en_on_boot(): %s", pycom.lte_modem_en_on_boot())
-        _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
         _logger.info("pycom.heartbeat_on_boot():    %s", pycom.heartbeat_on_boot())
+        _logger.info("pycom.wdt_on_boot():          %s", pycom.wdt_on_boot())
+        _logger.info("pycom.wdt_on_boot_timeout():  %s", pycom.wdt_on_boot_timeout())
 
 def quick_test_hw(hw):
     wdt = machine.WDT(timeout=10*1000)
@@ -203,7 +205,7 @@ def quick_test_hw(hw):
         wdt.feed()
 
     show_boot_flags()
-    _logger.info("Failures after quick hardware check: {:#018b}".format(failures))
+    _logger.info("Failures after quick hardware check: 0x%04x", failures)
     display_errors_led()
     wdt.feed()
 
@@ -298,5 +300,5 @@ def test_lte_ntp(hw, max_drift_secs=4):
         pass
 
     show_boot_flags()
-    _logger.info("Failures after LTE test: {:#018b}".format(failures))
+    _logger.info("Failures after LTE test: 0x%04x", failures)
     display_errors_led()
