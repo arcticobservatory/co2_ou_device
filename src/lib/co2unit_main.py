@@ -194,7 +194,7 @@ def run(hw, next_state):
     elif next_state == STATE_COMMUNICATE:
         _logger.info("Starting communication sequence...")
         import co2unit_comm
-        lte = co2unit_comm.transmit_data(hw)
+        lte = co2unit_comm.full_comm_sequence(hw)
 
     # Go to sleep until next wake-up
     return schedule_wake()

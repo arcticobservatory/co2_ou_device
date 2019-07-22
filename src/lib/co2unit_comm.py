@@ -22,7 +22,7 @@ COMM_CONF_DEFAULTS = {
         "ou_id": UNIQUE_ID,
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
         "sync_dirs": [
-            ["data/readings", "push_sequential"]
+            ["data/readings", "push_sequential"],
             ],
         "ntp_max_drift_secs": 4,
         }
@@ -127,7 +127,28 @@ def push_sequential_update_sizes(dirname, pushstate):
         pushstate[key] = [fname, progress, totalsize]
         _logger.info("push_sequential dir %s: %09s: %20s bytes %09s of %09s", dirname, key, fname, progress, totalsize)
 
-def transmit_data(hw):
+def transmit_data(cc, cs, wdt):
+    sync_dest = cc.sync_dest
+    ou_id = cc.ou_id
+
+    url = "{}/ou/{}/alive".format(sync_dest, ou_id)
+    _logger.info("urequests POST %s", url)
+    resp = urequests.post(url, data="")
+    _logger.info("Response (%s): %s", resp.status_code, resp.text)
+
+    for dirname, dirtype in cc.sync_dirs:
+        if dirtype == "push_sequential":
+
+            if not dirname in cs.sync_states:
+                cs.sync_states[dirname] = {}
+
+            pushstate = cs.sync_states[dirname]
+            push_sequential_update_sizes(dirname, pushstate)
+
+        else:
+            _logger.warning("Unknown sync type for %s: %s", sdir, stype)
+
+def full_comm_sequence(hw):
     """ Transmits data
 
     - SD card must be mounted before calling
@@ -142,13 +163,13 @@ def transmit_data(hw):
 
     os.chdir(SD_ROOT)
 
-    comm_conf = fileutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
-    _logger.info("comm_conf : %s", comm_conf)
+    cc = fileutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
+    _logger.info("comm_conf : %s", cc)
 
-    comm_state = fileutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
-    _logger.info("comm_state: %s", comm_state)
+    cs = fileutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
+    _logger.info("comm_state: %s", cs)
 
-    if not comm_conf.sync_dest:
+    if not cc.sync_dest:
         _logger.error("No sync destination")
         return
 
@@ -156,49 +177,28 @@ def transmit_data(hw):
         # LTE init seems to be successful more often if we give it time first
         _logger.info("Giving LTE time to boot before initializing it...")
         time.sleep_ms(1000)
+        wdt.feed()
 
         with TimedStep(chrono, "LTE init and connect"):
             lte = lte_connect(wdt)
-
-        wdt.init(10*1000)
+            wdt.feed()
 
         with TimedStep(chrono, "Set time from NTP", suppress_exception=True):
             ts = timeutil.fetch_ntp_time()
             hw.set_both_rtcs(ts)
+            wdt.feed()
 
-        wdt.feed()
-
-        sync_dest = comm_conf.sync_dest
-        ou_id = comm_conf.ou_id
-
-        url = "{}/ou/{}/alive".format(sync_dest, ou_id)
-        _logger.info("urequests POST %s", url)
-        resp = urequests.post(url, data="")
-        _logger.info("Response (%s): %s", resp.status_code, resp.text)
-
-        for dirname, dirtype in comm_conf.sync_dirs:
-            if dirtype == "push_sequential":
-
-                if not dirname in comm_state.sync_states:
-                    comm_state.sync_states[dirname] = {}
-
-                pushstate = comm_state.sync_states[dirname]
-                push_sequential_update_sizes(dirname, pushstate)
-
-            else:
-                _logger.warning("Unknown sync type for %s: %s", sdir, stype)
-
-        wdt.feed()
-
-        try:
-            fileutil.save_config_json(COMM_STATE_PATH, comm_state)
-            _logger.info("State saved: %s", comm_state)
-        except:
-            _logger.warning("Unable to save state: %s", comm_state)
-
-        wdt.feed()
+        with TimedStep(chrono, "Transmit data"):
+            transmit_data(cc, cs, wdt)
+            wdt.feed()
 
     finally:
-        lte_deinit(lte, wdt)
+        with TimedStep(chrono, "Save comm state", suppress_exception=True):
+            fileutil.save_config_json(COMM_STATE_PATH, cs)
+            wdt.feed()
+
+        with TimedStep(chrono, "LTE disconnect and deinit"):
+            lte_deinit(lte, wdt)
+            wdt.feed()
 
     return lte
