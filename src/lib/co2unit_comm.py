@@ -127,11 +127,14 @@ def push_sequential_update_sizes(dirname, pushstate):
         pushstate[key] = [fname, progress, totalsize]
         _logger.info("push_sequential dir %s: %09s: %20s bytes %09s of %09s", dirname, key, fname, progress, totalsize)
 
-def transmit_data(hw, wdt=None):
+def transmit_data(hw):
     """ Transmits data
 
     - SD card must be mounted before calling
     """
+
+    wdt = machine.WDT(timeout=10*1000)
+
     chrono = machine.Timer.Chrono()
     chrono.start()
 

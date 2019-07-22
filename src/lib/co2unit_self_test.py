@@ -1,4 +1,4 @@
-from machine import Timer
+import machine
 import logging
 import time
 
@@ -81,6 +81,8 @@ def display_errors_led(flags = None):
     global failures
     flags = flags or failures
 
+    wdt = machine.WDT(timeout=10*1000)
+
     if not flags:
         blink_led(0x004400)
 
@@ -97,6 +99,7 @@ def display_errors_led(flags = None):
                     pycom.rgbled(color)
                     _logger.debug("showing failure {:#018b}, color {:#08x}, {}".format(flag, color, flag_name(flag)))
                     time.sleep_ms(1000)
+                    wdt.feed()
             pycom.rgbled(0x0)
             time.sleep_ms(200)
 
@@ -105,7 +108,9 @@ def display_errors_led(flags = None):
             if failures & flag:
                 _logger.error("Hardware/firmware failure requires human intervention: %s", flag_name(flag))
                 pycom.rgbled(flag_color(flag))
-                for _ in range(0, 10): time.sleep_ms(1000)
+                for _ in range(0, 10):
+                    time.sleep_ms(1000)
+                    wdt.feed()
                 break
 
     pycom.rgbled(0x0)
@@ -116,7 +121,7 @@ class CheckStep(object):
         self.flag_bin = "{flag:#0{width}b}".format(flag=flag, width=FLAG_MAX_SHIFT+2)
         self.flag_name = "{:20}".format(flag_name(flag))
         self.suppress_exception = suppress_exception
-        self.chrono = Timer.Chrono()
+        self.chrono = machine.Timer.Chrono()
         self.extra_fmt_str = None
         self.extra_args = None
 
@@ -150,7 +155,7 @@ def show_boot_flags():
 def quick_test_hw(hw):
 
     _logger.info("Starting hardware quick check")
-    chrono = Timer.Chrono()
+    chrono = machine.Timer.Chrono()
     chrono.start()
 
     with CheckStep(FLAG_MOSFET_PIN, suppress_exception=True):
@@ -197,10 +202,12 @@ def quick_test_hw(hw):
 
 def test_lte_ntp(hw, max_drift_secs=4):
 
+    wdt = machine.WDT(timeout=10*1000)
+
     global failures
     _logger.info("Testing LTE connectivity...")
 
-    chrono = Timer.Chrono()
+    chrono = machine.Timer.Chrono()
     chrono.start()
 
     with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
@@ -217,6 +224,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
             chrono.reset()
             lte = LTE()
             _logger.info("LTE init ok (%d ms)", chrono.read_ms())
+            wdt.feed()
     except:
         return failures
 
@@ -226,18 +234,20 @@ def test_lte_ntp(hw, max_drift_secs=4):
             chrono.reset()
             lte.attach()
             while True:
+                wdt.feed()
                 if lte.isattached(): break
-                if chrono.read_ms() > 150 * 1000: raise TimeoutError()
+                if chrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
+                time.sleep_ms(50)
             _logger.info("LTE attach ok (%d ms). Connecting...", chrono.read_ms())
 
         with CheckStep(FLAG_LTE_CONNECT):
             chrono.reset()
             lte.connect()
             while True:
-                if lte.isconnected():
-                    break
-                elif chrono.read_ms() > 120 * 1000:
-                    raise TimeoutError("LTE did not attach after %d ms" % chrono.read_ms())
+                wdt.feed()
+                if lte.isconnected(): break
+                if chrono.read_ms() > 120 * 1000: raise TimeoutError("Timeout during LTE connect")
+                time.sleep_ms(50)
             _logger.info("LTE connect ok (%d ms)", chrono.read_ms())
 
         with CheckStep(FLAG_NTP_FETCH, suppress_exception=True):
@@ -258,6 +268,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
             failures &= ~FLAG_TIME_SOURCE   # Clear FLAG_TIME_SOURCE if previously set
             _logger.info("Got time with NTP (%d ms). Shutting down...", chrono.read_ms())
+            wdt.feed()
 
         with CheckStep(FLAG_LTE_SHUTDOWN):
             if lte:
@@ -266,14 +277,17 @@ def test_lte_ntp(hw, max_drift_secs=4):
                         chrono.reset()
                         lte.disconnect()
                         _logger.info("LTE disconnected (%d ms)", chrono.read_ms())
+                        wdt.feed()
                     if lte.isattached():
                         chrono.reset()
                         lte.dettach()
                         _logger.info("LTE detached (%d ms)", chrono.read_ms())
+                        wdt.feed()
                 finally:
                     chrono.reset()
                     lte.deinit()
                     _logger.info("LTE deinit-ed (%d ms)", chrono.read_ms())
+                    wdt.feed()
     except:
         pass
 

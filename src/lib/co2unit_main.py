@@ -42,8 +42,10 @@ def determine_state_after_reset():
         return STATE_QUICK_HW_TEST
 
     if reset_cause in [machine.SOFT_RESET, machine.WDT_RESET, machine.DEEPSLEEP_RESET]:
-        if reset_cause in [machine.SOFT_RESET, machine.WDT_RESET]:
-            _logger.info("Soft reset or self-reset")
+        if reset_cause == machine.SOFT_RESET:
+            _logger.info("Soft reset")
+        elif reset_cause == machine.WDT_RESET:
+            _logger.info("Self-reset or watchdog reset")
         elif reset_cause == machine.DEEPSLEEP_RESET:
             _logger.info("Woke up from deep sleep")
 
@@ -98,7 +100,6 @@ def schedule_wake():
     return sleep_sec * 1000
 
 def run(hw, next_state):
-
     # Clear wake hints so we can detect a crash
     next_state_on_boot(erase=True)
 
@@ -106,11 +107,11 @@ def run(hw, next_state):
         _logger.warning("Unknown start state. Default to scheduling sleep.")
         next_state = STATE_SCHEDULE
 
-    # Run chosen state
-    # --------------------------------------------------
-
     # Turn on peripherals
     hw.power_peripherals(True)
+
+    # Self-test states
+    # --------------------------------------------------
 
     if next_state in [STATE_QUICK_HW_TEST, STATE_LTE_TEST]:
         # Reset heartbeat to initialize RGB LED, for test feedback
@@ -131,13 +132,15 @@ def run(hw, next_state):
             next_state_on_boot(STATE_SCHEDULE)
 
         # Pause to give user a chance to interrupt
-        pycom.rgbled(0x222222)
+        pycom.rgbled(0x0)
         _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
         for _ in range(0, 50):
             time.sleep_ms(100)
-        pycom.rgbled(0x0)
 
         return 0
+
+    # States that require RTC
+    # --------------------------------------------------
 
     try:
         hw.sync_to_most_reliable_rtc()
@@ -148,10 +151,13 @@ def run(hw, next_state):
         _logger.info("Scheduling only....")
         return schedule_wake()
 
+    # States that require SD card
+    # --------------------------------------------------
+
+    hw.mount_sd_card()
+
     if next_state == STATE_UPDATE:
         _logger.info("Starting check for updates...")
-
-        hw.mount_sd_card()
 
         # If there is a crash during update, go back to hardware test
         next_state_on_boot(STATE_QUICK_HW_TEST)
@@ -159,8 +165,9 @@ def run(hw, next_state):
         # Set persistent settings
         pycom.wifi_on_boot(False)
         pycom.lte_modem_en_on_boot(False)
-        pycom.wdt_on_boot(False)
         pycom.heartbeat_on_boot(False)
+        pycom.wdt_on_boot(True)
+        pycom.wdt_on_boot_timeout(10*1000)
 
         # Check for updates
         import co2unit_update
@@ -183,21 +190,13 @@ def run(hw, next_state):
         reading = co2unit_measure.read_sensors(hw)
         _logger.info("Reading: %s", reading)
 
-        hw.mount_sd_card()
-
         reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
         co2unit_measure.store_reading(reading, reading_data_dir)
 
     elif next_state == STATE_COMMUNICATE:
         _logger.info("Starting communication sequence...")
-
-        # TODO: set WDT at beginning for all paths
-        wdt = machine.WDT(timeout=30*60*1000)
-
-        hw.mount_sd_card()
-
         import co2unit_comm
-        lte = co2unit_comm.transmit_data(hw, wdt)
+        lte = co2unit_comm.transmit_data(hw)
 
     # Go to sleep until next wake-up
     return schedule_wake()

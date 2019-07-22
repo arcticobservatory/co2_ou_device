@@ -17,9 +17,11 @@ Note that the hw variable does not actually touch the hardware unless we start
 accessing its members.
 """
 
+hw = None
+
 try:
     import machine
-    wdt = machine.WDT(timeout=5*60*1000)
+    wdt = machine.WDT(timeout=10*1000)
 
     # Get handle to hardware
     import co2unit_hw
@@ -62,7 +64,7 @@ except Exception as e:
     for i in reversed(range(0, 5)):
         print(i+1, end="")
         print(" ", end="")
-        time.sleep(1)
+        time.sleep_ms(1000)
 
     print("Sleeping...")
     if hw: hw.prepare_for_shutdown()
@@ -70,8 +72,6 @@ except Exception as e:
 
 except KeyboardInterrupt as e:
     import sys
-    import machine
-
     sys.print_exception(e)
     print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
     wdt = machine.WDT(timeout=30*60*1000)
