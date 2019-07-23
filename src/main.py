@@ -18,6 +18,7 @@ accessing its members.
 """
 
 hw = None
+repl_on_error = False
 
 try:
     import machine
@@ -38,6 +39,7 @@ try:
 
     # Area for temporary test overrides
     # --------------------------------------------------
+    # repl_on_error = True
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
@@ -66,6 +68,9 @@ except Exception as e:
     # Extend watchdog timer in case the user does a KeyboardInterrupt
     wdt = machine.WDT(timeout=30*60*1000)
 
+    if repl_on_error:
+        sys.exit()
+
     try:
         print("Sleeping in ", end="")
         for i in reversed(range(0, 10)):
@@ -86,3 +91,4 @@ except KeyboardInterrupt as e:
     sys.print_exception(e)
     print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
     wdt = machine.WDT(timeout=30*60*1000)
+    sys.exit()

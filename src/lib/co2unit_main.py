@@ -10,12 +10,13 @@ import pycom_util
 
 # Normal operation
 STATE_UNKNOWN           = const(0)
-STATE_QUICK_HW_TEST     = const(1)
-STATE_LTE_TEST          = const(2)
-STATE_UPDATE            = const(3)
-STATE_SCHEDULE          = const(4)
-STATE_TAKE_MEASUREMENT  = const(5)
-STATE_COMMUNICATE       = const(6)
+STATE_CRASH_RECOVERY    = const(1)
+STATE_QUICK_HW_TEST     = const(2)
+STATE_LTE_TEST          = const(3)
+STATE_UPDATE            = const(4)
+STATE_SCHEDULE          = const(5)
+STATE_TAKE_MEASUREMENT  = const(6)
+STATE_COMMUNICATE       = const(7)
 
 SCHED_MINUTES   = const(0)
 SCHED_DAILY     = const(1)
@@ -49,10 +50,10 @@ def determine_state_after_reset():
         elif reset_cause == machine.DEEPSLEEP_RESET:
             _logger.info("Woke up from deep sleep")
 
+        # TODO: On recovery from crash, make sure modem is off
+
         _logger.info("Checking scheduled action...")
-        scheduled = next_state_on_boot(default=STATE_UNKNOWN)
-        if scheduled == STATE_UNKNOWN:
-            _logger.warning("Woke from deep sleep, but no activity scheduled. Possible crash.")
+        scheduled = next_state_on_boot(default=STATE_CRASH_RECOVERY)
         return scheduled
 
     _logger.warning("Unknown wake circumstances")
@@ -100,18 +101,33 @@ def schedule_wake():
     return sleep_sec * 1000
 
 def run(hw, next_state):
-    # Clear wake hints so we can detect a crash
-    next_state_on_boot(erase=True)
+    # In case of unexpected reset, go to crash recovery
+    next_state_on_boot(STATE_CRASH_RECOVERY)
 
     if next_state == STATE_UNKNOWN:
-        _logger.warning("Unknown start state. Default to scheduling sleep.")
-        next_state = STATE_SCHEDULE
+        _logger.warning("Unknown start state. Default to crash recovery")
+        next_state = STATE_CRASH_RECOVERY
 
     # Turn on peripherals
     hw.power_peripherals(True)
 
     # Self-test states
     # --------------------------------------------------
+
+    if next_state == STATE_CRASH_RECOVERY:
+        _logger.info("Starting crash recovery sequence...")
+        wdt = machine.WDT(timeout=10*1000)
+        try:
+            _logger.info("Making sure LTE modem is off")
+            import network
+            lte = network.LTE()
+            wdt.feed()
+            lte.deinit()
+            wdt.feed()
+        except Exception as e:
+            _logger.exc(e, "Could not turn off LTE modem")
+        next_state_on_boot(STATE_SCHEDULE)
+        return 0
 
     if next_state in [STATE_QUICK_HW_TEST, STATE_LTE_TEST]:
         # Reset heartbeat to initialize RGB LED, for test feedback
@@ -181,7 +197,7 @@ def run(hw, next_state):
         next_state_on_boot(STATE_SCHEDULE)
         return 0
 
-    elif next_state == STATE_TAKE_MEASUREMENT:
+    if next_state == STATE_TAKE_MEASUREMENT:
         _logger.info("Starting measurement sequence...")
 
         import co2unit_measure
@@ -191,7 +207,7 @@ def run(hw, next_state):
         reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
         co2unit_measure.store_reading(reading, reading_data_dir)
 
-    elif next_state == STATE_COMMUNICATE:
+    if next_state == STATE_COMMUNICATE:
         _logger.info("Starting communication sequence...")
         import co2unit_comm
         lte = co2unit_comm.full_comm_sequence(hw)
