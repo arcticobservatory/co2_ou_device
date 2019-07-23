@@ -18,7 +18,7 @@ accessing its members.
 """
 
 hw = None
-repl_on_error = False
+exit_to_repl_after = False
 
 try:
     import machine
@@ -39,7 +39,7 @@ try:
 
     # Area for temporary test overrides
     # --------------------------------------------------
-    # repl_on_error = True
+    # exit_to_repl_after = True
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
@@ -47,6 +47,10 @@ try:
     # --------------------------------------------------
 
     sleep_ms = co2unit_main.run(hw, next_state)
+
+    if exit_to_repl_after:
+        wdt = machine.WDT(timeout=30*60*1000)
+        sys.exit()
 
     hw.prepare_for_shutdown()
     if not sleep_ms:
@@ -68,7 +72,7 @@ except Exception as e:
     # Extend watchdog timer in case the user does a KeyboardInterrupt
     wdt = machine.WDT(timeout=30*60*1000)
 
-    if repl_on_error:
+    if exit_to_repl_after:
         sys.exit()
 
     try:

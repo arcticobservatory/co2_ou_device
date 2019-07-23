@@ -12,7 +12,7 @@ import fileutil
 import timeutil
 
 _logger = logging.getLogger("co2unit_comm")
-_logger.setLevel(logging.DEBUG)
+#_logger.setLevel(logging.DEBUG)
 
 SD_ROOT = "/sd"
 
@@ -165,23 +165,24 @@ def push_sequential(cc, dirname, ss, wdt):
             with open(fpath, "rb") as f:
                 buf = bytearray(cc.send_chunk_size)
                 while progress < totalsize:
-                    _logger.info("Sending %d bytes of %s starting at %09d of %09d", cc.send_chunk_size, fpath, progress, totalsize)
+                    _logger.info("Sending %d bytes of %s starting at %9d of %9d", cc.send_chunk_size, fpath, progress, totalsize)
                     with TimedStep(chrono, "Reading data"):
                         readbytes = f.readinto(buf)
                         mv = memoryview(buf)
                         senddata = mv[:readbytes]
-                        if _logger.level <= logging.DEBUG:
-                            s = uio.BytesIO(mv)#[:40])
-                            _logger.debug("Read data: '%s' ...", s.getvalue())
                         wdt.feed()
 
-                    url = "{}/ou/{}/data/{}/{}?offset={}".format(cc.sync_dest, cc.ou_id, dirname, fpath, progress)
-                    with TimedStep(chrono, "Sending data: %s" % url):
+                    if _logger.level <= logging.DEBUG:
+                        s = uio.BytesIO(mv)#[:40])
+                        _logger.debug("Read data: '%s' ...", s.getvalue())
+                        wdt.feed()
+
+                    url = "{}/ou/{}/{}?offset={}".format(cc.sync_dest, cc.ou_id, fpath, progress)
+                    with TimedStep(chrono, "Sending data: %s (%d bytes)" % (url, readbytes)):
                         resp = urequests.put(url, data=senddata)
-                        resp.raw.read()
-                        resp.close()
                         if resp.status_code != 200:
-                            raise Exception("Error sending data %s" % url)
+                            raise Exception("Error sending data: %s --- %s %s" % (url, resp.status_code, resp.content))
+                        _logger.info("Response (%s): %s", resp.status_code, repr(resp.content))
                         progress += readbytes
                         wdt.feed()
 
@@ -200,7 +201,7 @@ def transmit_data(cc, cs, wdt):
     with TimedStep(chrono, "Sending alive ping"):
         url = "{}/ou/{}/alive".format(cc.sync_dest, cc.ou_id)
         _logger.info("urequests POST %s", url)
-        resp = urequests.post(url, data="")
+        resp = urequests.post(url)
         _logger.info("Response (%s): %s", resp.status_code, resp.text)
 
     for dirname, dirtype in cc.sync_dirs:
@@ -261,6 +262,7 @@ def full_comm_sequence(hw):
     finally:
         with TimedStep(chrono, "Save comm state", suppress_exception=True):
             fileutil.save_config_json(COMM_STATE_PATH, cs)
+            _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
             wdt.feed()
 
         with TimedStep(chrono, "LTE disconnect and deinit"):
@@ -268,3 +270,6 @@ def full_comm_sequence(hw):
             wdt.feed()
 
     return lte
+
+def reset_state():
+    os.remove(COMM_STATE_PATH)
