@@ -138,23 +138,22 @@ def push_sequential(cc, dirname, ss, wdt):
     except:
         fname, progress, totalsize = [None, None, None]
 
-    if not fname:
-        fname = dirlist[0]
-
-    try:
-        dirindex = dirlist.index(fname)
-    except ValueError:
-        _logger.info("Current file %s is not in directory, starting at beggining of dir")
+    if not fname or fname not in dirlist:
+        if fname:
+            _logger.warning("Current file %s is not in directory, starting at beggining of dir")
+        fname, progress, totalsize = [dirlist[0], None, None]
         dirindex = 0
-        fname = dirlist[0]
+    else:
+        dirindex = dirlist.index(fname)
 
     try:
+        buf = bytearray(cc.send_chunk_size)
+
         while dirindex < len(dirlist):
             wdt.feed()
 
             if fname != dirlist[dirindex]:
-                fname = dirlist[dirindex]
-                progress = 0
+                fname, progress, totalsize = [dirlist[dirindex], None, None]
 
             fpath = "{}/{}".format(dirname, fname)
 
@@ -163,9 +162,9 @@ def push_sequential(cc, dirname, ss, wdt):
                 progress = 0
 
             with open(fpath, "rb") as f:
-                buf = bytearray(cc.send_chunk_size)
+
                 while progress < totalsize:
-                    _logger.info("Sending %d bytes of %s starting at %9d of %9d", cc.send_chunk_size, fpath, progress, totalsize)
+                    _logger.info("Sending from %s starting at %9d of %9d", fpath, progress, totalsize)
                     with TimedStep(chrono, "Reading data"):
                         f.seek(progress)
                         readbytes = f.readinto(buf)
