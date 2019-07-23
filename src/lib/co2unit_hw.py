@@ -211,11 +211,15 @@ class SdCardWrapper(sdcard.SDCard):
     calls to the underlying readblocks method, so that the driver only ever
     uses SPI CMD17 to read one block at a time.
 
-    Note that this method is called by the MicroPython file and filesystem
-    abstractions. Those libraries deal with fragmented files by calling this
-    method multiple times. So we do not have to worry about fragmented files
-    here. If we are asked to read multiple blocks, it is because we do want
-    that sequence of blocks. (Verified in real scenario)
+    Note that readblocks is called by the MicroPython file and filesystem
+    abstractions. Those libraries deal with fragmented files by calling
+    readblocks multiple times. So we do not have to worry about fragmented
+    files here. If we are asked to read multiple blocks, it is because we do
+    want that sequence of blocks. Verified by watching debug output while
+    reading a fragmented file.
+
+    See also the firmware f_read function in fatfs/ff.c:
+    https://github.com/pycom/pycom-micropython-sigfox/blob/df9f237c3fc0985f80181c62ba4f4ebd636bfae5/lib/fatfs/ff.c#L3463
     """
 
     def readblocks(self, blocknum, buf):
@@ -256,8 +260,8 @@ class SpiWrapper(SPI):
 
         self.spi.read(1, write=0xff)
 
-    This class translates the SDCard calls to the keyword call that the SPI
-    class understands.
+    This class translates the SDCard calls to the keyword call that the Pycom
+    SPI class understands.
     """
 
     def read(self, nbytes, token):
@@ -274,7 +278,7 @@ class PinWrapper(Pin):
 
     The Pycom firmware's Pin class does not support this. The object itself is
     callable and accepts a value. This class translates the SDCard calling
-    style to one the Pin class understands.
+    style to one the Pycom Pin class understands.
     """
 
     def high(self):
