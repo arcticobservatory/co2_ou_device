@@ -167,6 +167,7 @@ def push_sequential(cc, dirname, ss, wdt):
                 while progress < totalsize:
                     _logger.info("Sending %d bytes of %s starting at %9d of %9d", cc.send_chunk_size, fpath, progress, totalsize)
                     with TimedStep(chrono, "Reading data"):
+                        f.seek(progress)
                         readbytes = f.readinto(buf)
                         mv = memoryview(buf)
                         senddata = mv[:readbytes]
