@@ -16,6 +16,7 @@ import explorir
 import sdcard
 
 _logger = logging.getLogger("co2unit_hw")
+#_logger.setLevel(logging.DEBUG)
 
 class NoSdCardError(Exception): pass
 
@@ -209,25 +210,35 @@ class SdCardWrapper(sdcard.SDCard):
     So this class replaces the readblocks method with one that makes multiple
     calls to the underlying readblocks method, so that the driver only ever
     uses SPI CMD17 to read one block at a time.
+
+    Note that this method is called by the MicroPython file and filesystem
+    abstractions. Those libraries deal with fragmented files by calling this
+    method multiple times. So we do not have to worry about fragmented files
+    here. If we are asked to read multiple blocks, it is because we do want
+    that sequence of blocks. (Verified in real scenario)
     """
 
     def readblocks(self, blocknum, buf):
+        BLOCKSIZE = const(512)
 
-        nblocks, err = divmod(len(buf), 512)
+        nblocks, err = divmod(len(buf), BLOCKSIZE)
         if err:
-            _logger.error("Bad buffer size %d. Must be a multiple of 512", len(buf))
+            _logger.error("Bad buffer size %d. Must be a multiple of %d", len(buf), BLOCKSIZE)
             return 1
+
+        _logger.debug("readblocks blocknum=%d, len(buf)=%d, blocks=%d", blocknum, len(buf), nblocks)
 
         offset = 0
         mv = memoryview(buf)
         while nblocks:
-            result = super().readblocks(blocknum, mv[offset : offset + 512])
+            blockwindow = mv[offset : offset+BLOCKSIZE]
+            result = super().readblocks(blocknum, blockwindow)
             if result!=0:
                 _logger.error("Error reading block %d. super().readblocks returned %d", blocknum, result)
                 return 1
 
-            blocknum += 512
-            offset += 512
+            offset += BLOCKSIZE
+            blocknum += 1       # See note above about non-contiguous files
             nblocks -= 1
 
         return 0

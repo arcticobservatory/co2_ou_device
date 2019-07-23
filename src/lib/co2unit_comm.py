@@ -171,7 +171,7 @@ def push_sequential(cc, dirname, ss, wdt):
                         mv = memoryview(buf)
                         senddata = mv[:readbytes]
                         if _logger.level <= logging.DEBUG:
-                            s = uio.StringIO(mv)#[:40])
+                            s = uio.BytesIO(mv)#[:40])
                             _logger.debug("Read data: '%s' ...", s.getvalue())
                         wdt.feed()
 
