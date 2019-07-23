@@ -21,6 +21,7 @@ hw = None
 exit_to_repl_after = False
 
 try:
+    import sys
     import machine
     wdt = machine.WDT(timeout=10*1000)
 
@@ -63,7 +64,6 @@ try:
         machine.deepsleep(sleep_ms)
 
 except Exception as e:
-    import sys
     import time
 
     print("Caught exception at top level")
@@ -91,7 +91,6 @@ except Exception as e:
     machine.deepsleep(5 * 60 * 1000)
 
 except KeyboardInterrupt as e:
-    import sys
     sys.print_exception(e)
     print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
     wdt = machine.WDT(timeout=30*60*1000)
