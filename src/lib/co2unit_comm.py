@@ -4,6 +4,7 @@ import network
 import os
 import time
 import ubinascii
+import uio
 import urequests
 import usocket
 
@@ -11,6 +12,7 @@ import fileutil
 import timeutil
 
 _logger = logging.getLogger("co2unit_comm")
+_logger.setLevel(logging.DEBUG)
 
 SD_ROOT = "/sd"
 
@@ -25,6 +27,7 @@ COMM_CONF_DEFAULTS = {
             ["data/readings", "push_sequential"],
             ],
         "ntp_max_drift_secs": 4,
+        "send_chunk_size": 4*1024,
         }
 
 
@@ -112,41 +115,104 @@ def lte_deinit(lte, wdt):
 
         wdt.feed()
 
-def push_sequential_update_sizes(dirname, pushstate):
+
+def push_sequential(cc, dirname, ss, wdt):
+    chrono = machine.Timer.Chrono()
+    chrono.start()
+
+    # Make sure directory exists before trying to read it
+    fileutil.mkdirs(dirname)
+
     dirlist = os.listdir(dirname)
+    dirlist.sort()
 
-    for key in ["sent_file", "ack_file"]:
-        try:
-            fname, progress, totalsize = pushstate[key]
-        except:
-            fname, progress, totalsize = [None, None, None]
+    wdt.feed()
 
-        if fname and fname in dirlist:
-            totalsize = fileutile.file_size("{}/{}".format(dirname, fname))
+    if not dirlist:
+        _logger.info("push_sequential dir %s is empty. Nothing to push", dirname)
+        return
 
-        pushstate[key] = [fname, progress, totalsize]
-        _logger.info("push_sequential dir %s: %09s: %20s bytes %09s of %09s", dirname, key, fname, progress, totalsize)
+    key = "ack_file"
+    try:
+        fname, progress, totalsize = ss[key]
+    except:
+        fname, progress, totalsize = [None, None, None]
+
+    if not fname:
+        fname = dirlist[0]
+
+    try:
+        dirindex = dirlist.index(fname)
+    except ValueError:
+        _logger.info("Current file %s is not in directory, starting at beggining of dir")
+        dirindex = 0
+        fname = dirlist[0]
+
+    try:
+        while dirindex < len(dirlist):
+            wdt.feed()
+
+            if fname != dirlist[dirindex]:
+                fname = dirlist[dirindex]
+                progress = 0
+
+            fpath = "{}/{}".format(dirname, fname)
+
+            totalsize = fileutil.file_size(fpath)
+            if not progress:
+                progress = 0
+
+            with open(fpath, "rb") as f:
+                buf = bytearray(cc.send_chunk_size)
+                while progress < totalsize:
+                    _logger.info("Sending %d bytes of %s starting at %09d of %09d", cc.send_chunk_size, fpath, progress, totalsize)
+                    with TimedStep(chrono, "Reading data"):
+                        readbytes = f.readinto(buf)
+                        mv = memoryview(buf)
+                        senddata = mv[:readbytes]
+                        if _logger.level <= logging.DEBUG:
+                            s = uio.StringIO(mv)#[:40])
+                            _logger.debug("Read data: '%s' ...", s.getvalue())
+                        wdt.feed()
+
+                    url = "{}/ou/{}/data/{}/{}?offset={}".format(cc.sync_dest, cc.ou_id, dirname, fpath, progress)
+                    with TimedStep(chrono, "Sending data: %s" % url):
+                        resp = urequests.put(url, data=senddata)
+                        resp.raw.read()
+                        resp.close()
+                        if resp.status_code != 200:
+                            raise Exception("Error sending data %s" % url)
+                        progress += readbytes
+                        wdt.feed()
+
+            # TODO: quit after a timeout
+            dirindex += 1
+
+        _logger.info("push_sequential dir %s: all synced", dirname)
+    finally:
+        ss[key] = [fname, progress, totalsize]
+        _logger.info("push_sequential dir %s: %09s: %-20s bytes %09s of %09s", dirname, key, fname, progress, totalsize)
 
 def transmit_data(cc, cs, wdt):
-    sync_dest = cc.sync_dest
-    ou_id = cc.ou_id
+    chrono = machine.Timer.Chrono()
+    chrono.start()
 
-    url = "{}/ou/{}/alive".format(sync_dest, ou_id)
-    _logger.info("urequests POST %s", url)
-    resp = urequests.post(url, data="")
-    _logger.info("Response (%s): %s", resp.status_code, resp.text)
+    with TimedStep(chrono, "Sending alive ping"):
+        url = "{}/ou/{}/alive".format(cc.sync_dest, cc.ou_id)
+        _logger.info("urequests POST %s", url)
+        resp = urequests.post(url, data="")
+        _logger.info("Response (%s): %s", resp.status_code, resp.text)
 
     for dirname, dirtype in cc.sync_dirs:
+        if not dirname in cs.sync_states:
+            cs.sync_states[dirname] = {}
+        ss = cs.sync_states[dirname]
+
         if dirtype == "push_sequential":
-
-            if not dirname in cs.sync_states:
-                cs.sync_states[dirname] = {}
-
-            pushstate = cs.sync_states[dirname]
-            push_sequential_update_sizes(dirname, pushstate)
-
+            push_sequential(cc, dirname, ss, wdt)
         else:
             _logger.warning("Unknown sync type for %s: %s", sdir, stype)
+        _logger.info("ss: %s", ss)
 
 def full_comm_sequence(hw):
     """ Transmits data
