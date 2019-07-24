@@ -6,6 +6,7 @@ import logging
 _logger = logging.getLogger("co2unit_main")
 
 import co2unit_hw
+import configutil
 import pycom_util
 
 # Normal operation
@@ -15,15 +16,18 @@ STATE_QUICK_HW_TEST     = const(2)
 STATE_LTE_TEST          = const(3)
 STATE_UPDATE            = const(4)
 STATE_SCHEDULE          = const(5)
-STATE_TAKE_MEASUREMENT  = const(6)
+STATE_MEASURE           = const(6)
 STATE_COMMUNICATE       = const(7)
 
 SCHED_MINUTES   = const(0)
 SCHED_DAILY     = const(1)
 
-MEASURE_FREQ_MINUTES = 5
-COMM_SCHEDULE_HOUR = None
-COMM_SCHEDULE_MINUTE = 7
+SCHEDULE_DEFAULT = {
+        "tasks": [
+            [SCHED_MINUTES, 30, 0, STATE_MEASURE],
+            [SCHED_DAILY, 3, 10, STATE_COMMUNICATE],
+            ]
+        }
 
 next_state_on_boot = pycom_util.mk_on_boot_fn("co2_wake_next")
 
@@ -59,25 +63,25 @@ def determine_state_after_reset():
     _logger.warning("Unknown wake circumstances")
     return STATE_UNKNOWN
 
-def schedule_wake():
-    schedule = [
-            [SCHED_MINUTES, 5, 0, STATE_TAKE_MEASUREMENT],
-            [SCHED_MINUTES, 10, 7, STATE_COMMUNICATE],
-            [SCHED_DAILY, 8, 02, STATE_COMMUNICATE],
-            [SCHED_DAILY, 9, 12, STATE_COMMUNICATE],
-            [SCHED_DAILY, 10, 22, STATE_COMMUNICATE],
-            [SCHED_DAILY, 17, 52, STATE_TAKE_MEASUREMENT],
-            [SCHED_DAILY, 17, 53, STATE_COMMUNICATE],
-            [SCHED_DAILY, 19, 33, STATE_COMMUNICATE],
-            [SCHED_DAILY, 19, 43, STATE_COMMUNICATE],
-            ]
+SCHEDULE_PATH = "conf/schedule.json"
 
+def schedule_wake(hw):
     import timeutil
+
+    try:
+        schedule_path = "/".join([hw.SDCARD_MOUNT_POINT, SCHEDULE_PATH])
+        schedule = configutil.read_config_json(schedule_path, SCHEDULE_DEFAULT)
+    except Exception as e:
+        _logger.exc(e, "Could not read schdule config %s. Falling back to defaults", SCHEDULE_PATH)
+        schedule = SCHEDULE_DEFAULT
+    _logger.info("Schedule: %s", schedule)
+
+    tasks = schedule.tasks
 
     _logger.info("Now %s", time.gmtime())
 
     countdowns = []
-    for item in schedule:
+    for item in tasks:
         sched_type = item[0]
         if sched_type == SCHED_MINUTES:
             _, minutes, offset, action = item
@@ -163,14 +167,14 @@ def run(hw, next_state):
     except Exception as e:
         _logger.warning(e)
 
-    if next_state == STATE_SCHEDULE:
-        _logger.info("Scheduling only....")
-        return schedule_wake()
-
     # States that require SD card
     # --------------------------------------------------
 
     hw.mount_sd_card()
+
+    if next_state == STATE_SCHEDULE:
+        _logger.info("Scheduling only....")
+        return schedule_wake(hw)
 
     if next_state == STATE_UPDATE:
         _logger.info("Starting check for updates...")
@@ -197,7 +201,7 @@ def run(hw, next_state):
         next_state_on_boot(STATE_SCHEDULE)
         return 0
 
-    if next_state == STATE_TAKE_MEASUREMENT:
+    if next_state == STATE_MEASURE:
         _logger.info("Starting measurement sequence...")
 
         import co2unit_measure
@@ -213,4 +217,4 @@ def run(hw, next_state):
         lte = co2unit_comm.full_comm_sequence(hw)
 
     # Go to sleep until next wake-up
-    return schedule_wake()
+    return schedule_wake(hw)

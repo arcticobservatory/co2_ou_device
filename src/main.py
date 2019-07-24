@@ -21,13 +21,15 @@ hw = None
 exit_to_repl_after = False
 
 try:
-    DEFAULT_WDT_TIMEOUT = const(10*1000)
-    REPL_WDT_TIMEOUT    = const(30*60*1000)
-    ERROR_SLEEP_MS      = const(5*60*1000)
+    WDT_TIMEOUT_DEFAULT     = const(10*1000)
+    WDT_TIMEOUT_REPL        = const(30*60*1000)
+    ERROR_SLEEP_MS_DEFAULT  = const(15*60*1000)
+
+    import machine
+    wdt = machine.WDT(timeout=WDT_TIMEOUT_DEFAULT)
 
     import sys
-    import machine
-    wdt = machine.WDT(timeout=DEFAULT_WDT_TIMEOUT)
+    import time
 
     # Get handle to hardware
     import co2unit_hw
@@ -48,19 +50,18 @@ try:
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
-    # next_state = co2unit_main.STATE_TAKE_MEASUREMENT
+    # next_state = co2unit_main.STATE_MEASURE
     # raise Exception("Dummy Exception")
     # --------------------------------------------------
 
     sleep_ms = co2unit_main.run(hw, next_state)
 
     if exit_to_repl_after:
-        wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
+        wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
         sys.exit()
 
     hw.prepare_for_shutdown()
     if not sleep_ms:
-        import time
         print("Resetting...")
         time.sleep_ms(5)    # Give a moment for output buffer to flush
         machine.reset()
@@ -69,8 +70,6 @@ try:
         machine.deepsleep(sleep_ms)
 
 except Exception as e:
-    import time
-
     # Show exception
     print("Caught exception at top level")
     sys.print_exception(e)
@@ -84,8 +83,19 @@ except Exception as e:
         sys.print_exception(e2)
 
     if exit_to_repl_after:
-        wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
+        wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
         sys.exit()
+
+    # Determine how long to sleep
+    try:
+        # Attempt to return to normal schedule
+        import co2unit_main
+        sleep_ms = co2unit_main.schedule_wake(hw)
+    except Exception as e2:
+        print("Error trying to schedule wakeup...")
+        sys.print_exception(e2)
+        sleep_ms = ERROR_SLEEP_MS_DEFAULT
+        print("Falling back to default", sleep_ms, "ms")
 
     try:
         hw.prepare_for_shutdown()
@@ -94,10 +104,10 @@ except Exception as e:
         sys.print_exception(e2)
 
     print("Sleeping...")
-    machine.deepsleep(ERROR_SLEEP_MS)
+    machine.deepsleep(sleep_ms)
 
 except KeyboardInterrupt as e:
     sys.print_exception(e)
     print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
-    wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
+    wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
     sys.exit()
