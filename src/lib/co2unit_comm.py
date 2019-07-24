@@ -177,7 +177,7 @@ def push_sequential(cc, dirname, ss, wdt):
                         _logger.debug("Read data: '%s' ...", s.getvalue())
                         wdt.feed()
 
-                    url = "{}/ou/{}/{}?offset={}".format(cc.sync_dest, cc.ou_id, fpath, progress)
+                    url = "{}/ou/{}/push-sequential/{}?offset={}".format(cc.sync_dest, cc.ou_id, fpath, progress)
                     with TimedStep(chrono, "Sending data: %s (%d bytes)" % (url, readbytes)):
                         resp = urequests.put(url, data=senddata)
                         if resp.status_code != 200:
