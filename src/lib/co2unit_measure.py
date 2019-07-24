@@ -142,3 +142,10 @@ def store_reading(reading, reading_data_dir):
         f.write("\n")
     _logger.info("Wrote row to %s: %s\t", target, row)
     return (target, row)
+
+def measure_sequence(hw):
+    _logger.info("Starting measurement sequence...")
+    reading = read_sensors(hw)
+    _logger.info("Reading: %s", reading)
+    reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
+    return store_reading(reading, reading_data_dir)

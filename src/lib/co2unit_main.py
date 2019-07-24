@@ -63,6 +63,36 @@ def determine_state_after_reset():
     _logger.warning("Unknown wake circumstances")
     return STATE_UNKNOWN
 
+def crash_recovery_sequence():
+    _logger.info("Starting crash recovery sequence...")
+    wdt = machine.WDT(timeout=10*1000)
+    try:
+        _logger.info("Making sure LTE modem is off")
+        import network
+        _logger.info("Initializing LTE just to get handle...")
+        lte = network.LTE()
+        wdt.feed()
+        _logger.info("Deinit...")
+        lte.deinit()
+        wdt.feed()
+        _logger.info("LTE off")
+    except Exception as e:
+        _logger.exc(e, "Could not turn off LTE modem")
+
+def reset_rgbled():
+    # When heartbeat is disabled at boot, calls to pycom.rgbled won't work.
+    # Need to turn it on and off again to re-enable.
+    pycom.heartbeat(True)
+    pycom.heartbeat(False)
+
+def set_persistent_settings():
+    _logger.info("Setting persistent settings...")
+    pycom.wifi_on_boot(False)
+    pycom.lte_modem_en_on_boot(False)
+    pycom.heartbeat_on_boot(False)
+    pycom.wdt_on_boot(True)
+    pycom.wdt_on_boot_timeout(10*1000)
+
 SCHEDULE_PATH = "conf/schedule.json"
 
 def schedule_wake(hw):
@@ -119,35 +149,22 @@ def run(hw, next_state):
     # --------------------------------------------------
 
     if next_state == STATE_CRASH_RECOVERY:
-        _logger.info("Starting crash recovery sequence...")
-        wdt = machine.WDT(timeout=10*1000)
-        try:
-            _logger.info("Making sure LTE modem is off")
-            import network
-            lte = network.LTE()
-            wdt.feed()
-            lte.deinit()
-            wdt.feed()
-        except Exception as e:
-            _logger.exc(e, "Could not turn off LTE modem")
+        crash_recovery_sequence()
         next_state_on_boot(STATE_SCHEDULE)
         return 0
 
     if next_state in [STATE_QUICK_HW_TEST, STATE_LTE_TEST]:
         # Reset heartbeat to initialize RGB LED, for test feedback
-        pycom.heartbeat(True)
-        pycom.heartbeat(False)
+        reset_rgbled()
 
         # Do self-test
         import co2unit_self_test
 
         if next_state == STATE_QUICK_HW_TEST:
-            _logger.info("Starting quick self test...")
             co2unit_self_test.quick_test_hw(hw)
             next_state_on_boot(STATE_LTE_TEST)
 
         elif next_state == STATE_LTE_TEST:
-            _logger.info("Starting LTE test...")
             co2unit_self_test.test_lte_ntp(hw)
             next_state_on_boot(STATE_UPDATE)
 
@@ -177,44 +194,20 @@ def run(hw, next_state):
         return schedule_wake(hw)
 
     if next_state == STATE_UPDATE:
-        _logger.info("Starting check for updates...")
-
-        # If there is a crash during update, go back to hardware test
-        next_state_on_boot(STATE_QUICK_HW_TEST)
-
         # Set persistent settings
-        pycom.wifi_on_boot(False)
-        pycom.lte_modem_en_on_boot(False)
-        pycom.heartbeat_on_boot(False)
-        pycom.wdt_on_boot(True)
-        pycom.wdt_on_boot_timeout(10*1000)
+        set_persistent_settings()
 
         # Check for updates
         import co2unit_update
-        updates_dir = hw.SDCARD_MOUNT_POINT + "/updates"
-        updates_installed = co2unit_update.check_and_install_updates(updates_dir)
-
-        if updates_installed:
-            _logger.info("Updates installed")
-        else:
-            _logger.info("No updates installed")
-        next_state_on_boot(STATE_SCHEDULE)
-        return 0
+        co2unit_update.update_sequence(hw.SDCARD_MOUNT_POINT)
 
     if next_state == STATE_MEASURE:
-        _logger.info("Starting measurement sequence...")
-
         import co2unit_measure
-        reading = co2unit_measure.read_sensors(hw)
-        _logger.info("Reading: %s", reading)
-
-        reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
-        co2unit_measure.store_reading(reading, reading_data_dir)
+        co2unit_measure.measure_sequence(hw)
 
     if next_state == STATE_COMMUNICATE:
-        _logger.info("Starting communication sequence...")
         import co2unit_comm
-        lte = co2unit_comm.full_comm_sequence(hw)
+        lte = co2unit_comm.comm_sequence(hw)
 
     # Go to sleep until next wake-up
     return schedule_wake(hw)

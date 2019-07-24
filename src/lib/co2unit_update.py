@@ -7,9 +7,11 @@ import seqfile
 _logger = logging.getLogger("co2unit_update")
 #_logger.setLevel(logging.DEBUG)
 
+UPDATES_DIR = "updates"
 UPDATES_MATCH = ("update-", '')
 # Note: this filename must not match the UPDATES_MATCH pattern or else it will
 # be mistaken for an update
+# TODO: Move to var/
 UPDATE_STATE_FILENAME = "updates-state.json"
 
 UPDATE_STATE_DEFAULTS = {
@@ -85,7 +87,9 @@ def install_update(state, update_subdir):
             f.write(serialized)
         _logger.info(" State saved  %s: %s", UPDATE_STATE_FILENAME, serialized)
 
-def check_and_install_updates(updates_dir):
+def update_sequence(sd_root):
+    _logger.info("Starting check for updates...")
+    updates_dir = "/".join([sd_root, UPDATES_DIR])
     os.chdir(updates_dir)
     state, new_update = check_for_updates()
     if new_update:

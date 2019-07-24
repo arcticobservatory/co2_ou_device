@@ -155,6 +155,7 @@ def show_boot_flags():
         _logger.info("pycom.wdt_on_boot_timeout():  %s", pycom.wdt_on_boot_timeout())
 
 def quick_test_hw(hw):
+    _logger.info("Starting quick self test...")
     wdt = machine.WDT(timeout=10*1000)
 
     _logger.info("Starting hardware quick check")
@@ -210,6 +211,7 @@ def quick_test_hw(hw):
     wdt.feed()
 
 def test_lte_ntp(hw, max_drift_secs=4):
+    _logger.info("Starting LTE test...")
     wdt = machine.WDT(timeout=10*1000)
 
     global failures

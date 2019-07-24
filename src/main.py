@@ -21,9 +21,9 @@ hw = None
 exit_to_repl_after = False
 
 try:
-    WDT_TIMEOUT_DEFAULT     = const(10*1000)
-    WDT_TIMEOUT_REPL        = const(30*60*1000)
-    ERROR_SLEEP_MS_DEFAULT  = const(15*60*1000)
+    WDT_TIMEOUT_DEFAULT     = const(1000*10)
+    WDT_TIMEOUT_REPL        = const(1000*60*30)
+    ERROR_SLEEP_MS_DEFAULT  = const(1000*60*15)
 
     import machine
     wdt = machine.WDT(timeout=WDT_TIMEOUT_DEFAULT)

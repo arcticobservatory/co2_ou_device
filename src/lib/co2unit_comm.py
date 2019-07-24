@@ -215,11 +215,12 @@ def transmit_data(cc, cs, wdt):
             _logger.warning("Unknown sync type for %s: %s", sdir, stype)
         _logger.info("ss: %s", ss)
 
-def full_comm_sequence(hw):
+def comm_sequence(hw):
     """ Transmits data
 
     - SD card must be mounted before calling
     """
+    _logger.info("Starting communication sequence...")
 
     wdt = machine.WDT(timeout=10*1000)
 
