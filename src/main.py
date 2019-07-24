@@ -48,6 +48,7 @@ try:
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
+    # next_state = co2unit_main.STATE_TAKE_MEASUREMENT
     # raise Exception("Dummy Exception")
     # --------------------------------------------------
 

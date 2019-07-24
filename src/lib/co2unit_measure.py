@@ -9,8 +9,6 @@ import time
 _logger = logging.getLogger("co2unit_measure")
 #_logger.setLevel(logging.DEBUG)
 
-READING_FILE_SIZE_CUTOFF = const(100 * 1000)
-
 def read_sensors(hw):
     wdt = machine.WDT(timeout=10*1000)
 
@@ -124,45 +122,23 @@ def reading_to_tsv_row(reading):
     row = "{date}\t{time}\t{etemp}\t{co2s}".format(**row_data)
     return row
 
-def choose_readings_file(reading_data_dir):
-    _logger.debug("Ensuring observation dir exists %s", reading_data_dir)
-    created_dirs = fileutil.mkdirs(reading_data_dir)
-    if _logger.isEnabledFor(logging.DEBUG):
-        _logger.debug("ls %s: %s", reading_data_dir, os.listdir(reading_data_dir))
-
-    # Store data in sequential files, in case RTC gets messed up.
-    # Then we might be able to guess the times by the sequence of wrong times.
-
-    os.chdir(reading_data_dir)
-    files = os.listdir()
-
-    readings_match = ("readings-", ".tsv")
-    readings_file = seqfile.last_file_in_sequence(files, readings_match)
-
-    if not readings_file:
-        readings_file = seqfile.make_sequence_filename(0, readings_match)
-        _logger.info(" %20s : no readings found. Starting fresh", readings_file)
-
-    else:
-        stat = os.stat(readings_file)
-        file_size = stat[fileutil.STAT_SIZE_INDEX]
-
-        if file_size < READING_FILE_SIZE_CUTOFF:
-            _logger.debug("%20s : using current readings file...", readings_file)
-        else:
-            _logger.info(" %20s : file over size threshold", readings_file)
-            index = seqfile.extract_sequence_number(readings_file, readings_match)
-            readings_file = seqfile.make_sequence_filename(index+1, readings_match)
-            _logger.info(" %20s : beginning new file", readings_file)
-
-    return readings_file
+READING_FILE_MATCH = ("readings-", ".tsv")
+READING_FILE_SIZE_CUTOFF = const(100 * 1024)
 
 def store_reading(reading, reading_data_dir):
     row = reading_to_tsv_row(reading)
     _logger.debug("Data row: %s", row)
     _logger.debug("Data row: %s bytes", len(row) + 1)
 
-    readings_file = choose_readings_file(reading_data_dir)
+    _logger.info("Ensuring observation dir exists %s", reading_data_dir)
+    fileutil.mkdirs(reading_data_dir)
+
+    # Store data in sequential files, in case RTC gets messed up.
+    # Then we might be able to guess the times by the sequence of wrong times.
+
+    os.chdir(reading_data_dir)
+    readings_file = seqfile.choose_append_file(match=READING_FILE_MATCH, size_limit=READING_FILE_SIZE_CUTOFF)
+
     _logger.debug("Writing data to %s/%s ...", reading_data_dir, readings_file)
     with open(readings_file, "at") as f:
         f.write(row)
