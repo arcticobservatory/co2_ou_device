@@ -15,12 +15,10 @@ import timeutil
 _logger = logging.getLogger("co2unit_comm")
 #_logger.setLevel(logging.DEBUG)
 
-SD_ROOT = "/sd"
-
 UNIQUE_ID = ubinascii.hexlify(machine.unique_id()).decode("ascii")
 UNIQUE_ID = "co2unit-%s" % UNIQUE_ID
 
-COMM_CONF_PATH = "ou-comm-config.json"
+COMM_CONF_PATH = "conf/ou-comm-config.json"
 COMM_CONF_DEFAULTS = {
         "ou_id": UNIQUE_ID,
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
@@ -32,8 +30,8 @@ COMM_CONF_DEFAULTS = {
         "send_chunk_size": 4*1024,
         }
 
-
-COMM_STATE_PATH = "ou-comm-state.json"
+STATE_DIR = "var"
+COMM_STATE_PATH = STATE_DIR + "/ou-comm-state.json"
 COMM_STATE_DEFAULTS = {
         "sync_states": {}
         }
@@ -230,7 +228,7 @@ def full_comm_sequence(hw):
 
     lte = None
 
-    os.chdir(SD_ROOT)
+    os.chdir(hw.SDCARD_MOUNT_POINT)
 
     cc = configutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
     _logger.info("comm_conf : %s", cc)
@@ -263,6 +261,7 @@ def full_comm_sequence(hw):
 
     finally:
         with TimedStep(chrono, "Save comm state", suppress_exception=True):
+            fileutil.mkdirs(STATE_DIR)
             configutil.save_config_json(COMM_STATE_PATH, cs)
             _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
             wdt.feed()
