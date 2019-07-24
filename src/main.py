@@ -13,7 +13,7 @@ All allocation and logic should defer to co2unit_main.py.
 The exception of this is to set the hw variable to make it easier to work with
 if we do exit to the REPL.
 
-Note that the hw variable does not actually touch the hardware unless we start
+Note that the hw object does not actually touch the hardware unless we start
 accessing its members.
 """
 
@@ -21,9 +21,13 @@ hw = None
 exit_to_repl_after = False
 
 try:
+    DEFAULT_WDT_TIMEOUT = const(10*1000)
+    REPL_WDT_TIMEOUT    = const(30*60*1000)
+    ERROR_SLEEP_MS      = const(5*60*1000)
+
     import sys
     import machine
-    wdt = machine.WDT(timeout=10*1000)
+    wdt = machine.WDT(timeout=DEFAULT_WDT_TIMEOUT)
 
     # Get handle to hardware
     import co2unit_hw
@@ -50,7 +54,7 @@ try:
     sleep_ms = co2unit_main.run(hw, next_state)
 
     if exit_to_repl_after:
-        wdt = machine.WDT(timeout=30*60*1000)
+        wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
         sys.exit()
 
     hw.prepare_for_shutdown()
@@ -70,7 +74,7 @@ except Exception as e:
     sys.print_exception(e)
 
     # Extend watchdog timer in case the user does a KeyboardInterrupt
-    wdt = machine.WDT(timeout=30*60*1000)
+    wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
 
     if exit_to_repl_after:
         sys.exit()
@@ -88,10 +92,10 @@ except Exception as e:
     if hw: hw.prepare_for_shutdown()
 
     print("Sleeping...")
-    machine.deepsleep(5 * 60 * 1000)
+    machine.deepsleep(ERROR_SLEEP_MS)
 
 except KeyboardInterrupt as e:
     sys.print_exception(e)
     print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
-    wdt = machine.WDT(timeout=30*60*1000)
+    wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
     sys.exit()
