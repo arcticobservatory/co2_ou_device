@@ -1,42 +1,9 @@
 import os
-import json
 
 import logging
 
 _logger = logging.getLogger("fileutil")
 #_logger.setLevel(logging.DEBUG)
-
-STAT_SIZE_INDEX = 6
-
-class Namespace(object):
-    """ Converts a dictionary to an object with attribute access """
-    def __init__(self, **kwargs):
-        for k,v in kwargs.items():
-            setattr(self, k, v)
-    def __str__(self):
-        return "Namespace(**%s)" % str(self.__dict__)
-
-def read_config_json(filename, defaults={}):
-    """ Reads a JSON config file, adds defaults, and converts to a Namespace object """
-    config = defaults.copy()
-    try:
-        with open(filename) as f:
-            from_file = json.load(f)
-            _logger.debug("%s: %s", filename, from_file)
-            config.update(from_file)
-    except OSError as e:
-        if "ENOENT" in str(e):
-            _logger.info("%s missing. Proceeding with defaults", filename)
-        else:
-            raise e
-
-    config = Namespace(**config)
-    return config
-
-def save_config_json(filename, data):
-    with open(filename, "wt") as f:
-        f.write(json.dumps(data.__dict__))
-
 
 def mkdirs(path):
     pathparts = path.split("/")
@@ -101,35 +68,7 @@ def copy_recursive(src_path, dest_path, block_size=512):
             dest_child = "%s/%s" % (dest_path, child)
             copy_recursive(src_child, dest_child, block_size)
 
-def last_file_in_sequence(files, match=('','')):
-    prefix, suffix = match
-
-    files.sort()
-
-    for i in reversed(range(0, len(files))):
-        last_file = files[i]
-
-        if not last_file.startswith(prefix) or not last_file.endswith(suffix):
-            _logger.debug("%20s : Skipping non-matching file", last_file)
-            continue
-
-        return last_file
-    return None
+STAT_SIZE_INDEX = const(6)
 
 def file_size(filepath):
     return os.stat(filepath)[STAT_SIZE_INDEX]
-
-def make_sequence_filename(index, match=('','')):
-    prefix, suffix = match
-    return "%s%04d%s" % (prefix, index, suffix)
-
-def extract_sequence_number(filename, match=('','')):
-    prefix, suffix = match
-    if not filename.startswith(prefix) or not filename.endswith(suffix):
-        raise Exception("Filename %s does not match pattern %s0000%s" % (filename, prefix, suffix))
-
-    index = filename[len(prefix): -len(suffix)]
-    try:
-        return int(index)   # convert to integer if possible
-    except ValueError as e:
-        return index        # otherwise return string as is

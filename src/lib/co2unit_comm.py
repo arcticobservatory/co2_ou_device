@@ -8,6 +8,7 @@ import uio
 import urequests
 import usocket
 
+import configutil
 import fileutil
 import timeutil
 
@@ -230,10 +231,10 @@ def full_comm_sequence(hw):
 
     os.chdir(SD_ROOT)
 
-    cc = fileutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
+    cc = configutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
     _logger.info("comm_conf : %s", cc)
 
-    cs = fileutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
+    cs = configutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
     _logger.info("comm_state: %s", cs)
 
     if not cc.sync_dest:
@@ -261,7 +262,7 @@ def full_comm_sequence(hw):
 
     finally:
         with TimedStep(chrono, "Save comm state", suppress_exception=True):
-            fileutil.save_config_json(COMM_STATE_PATH, cs)
+            configutil.save_config_json(COMM_STATE_PATH, cs)
             _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
             wdt.feed()
 

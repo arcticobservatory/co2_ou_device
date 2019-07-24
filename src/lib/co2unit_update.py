@@ -1,10 +1,11 @@
-import logging
-_logger = logging.getLogger("co2unit_update")
-#_logger.setLevel(logging.DEBUG)
-
-import os
 import fileutil
 import json
+import logging
+import os
+import seqfile
+
+_logger = logging.getLogger("co2unit_update")
+#_logger.setLevel(logging.DEBUG)
 
 UPDATES_MATCH = ("update-", '')
 # Note: this filename must not match the UPDATES_MATCH pattern or else it will
@@ -46,7 +47,7 @@ def check_for_updates():
             _logger.warning("Currupt %s. Proceeding with defaults", UPDATE_STATE_FILENAME)
     _logger.debug("Update state: %s", state)
     state = Namespace(**state)
-    newest_update = fileutil.last_file_in_sequence(contents, UPDATES_MATCH)
+    newest_update = seqfile.last_file_in_sequence(contents, UPDATES_MATCH)
 
     if newest_update == None:
         _logger.info("No updates found")

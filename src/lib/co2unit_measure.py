@@ -3,6 +3,7 @@ import fileutil
 import logging
 import machine
 import os
+import seqfile
 import time
 
 _logger = logging.getLogger("co2unit_measure")
@@ -136,10 +137,10 @@ def choose_readings_file(reading_data_dir):
     files = os.listdir()
 
     readings_match = ("readings-", ".tsv")
-    readings_file = fileutil.last_file_in_sequence(files, readings_match)
+    readings_file = seqfile.last_file_in_sequence(files, readings_match)
 
     if not readings_file:
-        readings_file = fileutil.make_sequence_filename(0, readings_match)
+        readings_file = seqfile.make_sequence_filename(0, readings_match)
         _logger.info(" %20s : no readings found. Starting fresh", readings_file)
 
     else:
@@ -150,8 +151,8 @@ def choose_readings_file(reading_data_dir):
             _logger.debug("%20s : using current readings file...", readings_file)
         else:
             _logger.info(" %20s : file over size threshold", readings_file)
-            index = fileutil.extract_sequence_number(readings_file, readings_match)
-            readings_file = fileutil.make_sequence_filename(index+1, readings_match)
+            index = seqfile.extract_sequence_number(readings_file, readings_match)
+            readings_file = seqfile.make_sequence_filename(index+1, readings_match)
             _logger.info(" %20s : beginning new file", readings_file)
 
     return readings_file
