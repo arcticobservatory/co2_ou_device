@@ -71,26 +71,27 @@ try:
 except Exception as e:
     import time
 
+    # Show exception
     print("Caught exception at top level")
     sys.print_exception(e)
 
-    # Extend watchdog timer in case the user does a KeyboardInterrupt
-    wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
+    # Attempt to record exception
+    try:
+        import co2unit_errors
+        co2unit_errors.record_error(hw, e, "Uncaught exception at top level")
+    except Exception as e2:
+        print("Error trying to record first exception...")
+        sys.print_exception(e2)
 
     if exit_to_repl_after:
+        wdt = machine.WDT(timeout=REPL_WDT_TIMEOUT)
         sys.exit()
 
     try:
-        print("Sleeping in ", end="")
-        for i in reversed(range(0, 10)):
-            print(i+1, end="")
-            print(" ", end="")
-            for _ in range(0, 10):
-                time.sleep_ms(100)
-    finally:
-        print()
-
-    if hw: hw.prepare_for_shutdown()
+        hw.prepare_for_shutdown()
+    except Exception as e2:
+        print("Error trying to prepare for shutdown...")
+        sys.print_exception(e2)
 
     print("Sleeping...")
     machine.deepsleep(ERROR_SLEEP_MS)

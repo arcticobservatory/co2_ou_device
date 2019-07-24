@@ -1,6 +1,7 @@
+import logging
 import os
 
-import logging
+import seqfile
 
 _logger = logging.getLogger("fileutil")
 #_logger.setLevel(logging.DEBUG)
@@ -72,3 +73,9 @@ STAT_SIZE_INDEX = const(6)
 
 def file_size(filepath):
     return os.stat(filepath)[STAT_SIZE_INDEX]
+
+def prep_append_file(dir=".", match=('',''), size_limit=100*1024):
+    mkdirs(dir)
+    target = seqfile.choose_append_file(dir, match, size_limit)
+    tpath = "/".join([dir, target])
+    return tpath

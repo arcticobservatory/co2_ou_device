@@ -3,7 +3,6 @@ import fileutil
 import logging
 import machine
 import os
-import seqfile
 import time
 
 _logger = logging.getLogger("co2unit_measure")
@@ -130,18 +129,16 @@ def store_reading(reading, reading_data_dir):
     _logger.debug("Data row: %s", row)
     _logger.debug("Data row: %s bytes", len(row) + 1)
 
-    _logger.info("Ensuring observation dir exists %s", reading_data_dir)
-    fileutil.mkdirs(reading_data_dir)
-
     # Store data in sequential files, in case RTC gets messed up.
     # Then we might be able to guess the times by the sequence of wrong times.
 
-    os.chdir(reading_data_dir)
-    readings_file = seqfile.choose_append_file(match=READING_FILE_MATCH, size_limit=READING_FILE_SIZE_CUTOFF)
+    target = fileutil.prep_append_file(
+            dir=reading_data_dir,
+            match=READING_FILE_MATCH, size_limit=READING_FILE_SIZE_CUTOFF)
 
-    _logger.debug("Writing data to %s/%s ...", reading_data_dir, readings_file)
-    with open(readings_file, "at") as f:
+    _logger.debug("Writing data to %s ...", target)
+    with open(target, "at") as f:
         f.write(row)
         f.write("\n")
-    _logger.info("Wrote row to %s/%s: %s\t", reading_data_dir, readings_file, row)
-    return (readings_file, row)
+    _logger.info("Wrote row to %s: %s\t", target, row)
+    return (target, row)

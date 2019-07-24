@@ -47,8 +47,8 @@ def next_sequence_filename(filename, match=('','')):
 
 ST_SIZE_INDEX = 6
 
-def choose_append_file(match=('',''), directory=".", size_limit=100*1024):
-    files = os.listdir(directory)
+def choose_append_file(dir=".", match=('',''), size_limit=100*1024):
+    files = os.listdir(dir)
     _logger.debug("%s", files)
     target = last_file_in_sequence(files, match)
 
@@ -57,7 +57,7 @@ def choose_append_file(match=('',''), directory=".", size_limit=100*1024):
         _logger.info("%s : no target file found. Starting fresh", target)
 
     else:
-        tpath = "/".join([directory, target])
+        tpath = "/".join([dir, target])
         size = os.stat(tpath)[ST_SIZE_INDEX]
 
         if size < size_limit:
