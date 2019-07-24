@@ -26,6 +26,7 @@ COMM_CONF_DEFAULTS = {
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
         "sync_dirs": [
             ["data/readings", "push_sequential"],
+            ["errors", "push_sequential"],
             ],
         "ntp_max_drift_secs": 4,
         "send_chunk_size": 4*1024,
