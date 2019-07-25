@@ -29,6 +29,7 @@ COMM_CONF_DEFAULTS = {
             ],
         "ntp_max_drift_secs": 4,
         "send_chunk_size": 4*1024,
+        "total_connect_secs_max": 60*5,
         "connect_backoff_max": 7,
         }
 
@@ -38,6 +39,11 @@ COMM_STATE_DEFAULTS = {
         "sync_states": {},
         "connect_backoff": [0, 0],
         }
+
+total_chrono = machine.Timer.Chrono()
+
+def total_time_up(cc):
+    return total_chrono.read() > cc.total_connect_secs_max
 
 class TimedStep(object):
     def __init__(self, chrono, desc="", suppress_exception=False):
@@ -59,6 +65,8 @@ class TimedStep(object):
             _logger.info("%s OK (%d ms)", self.desc, elapsed)
 
 def lte_connect(wdt):
+    total_chrono.start()
+
     chrono = machine.Timer.Chrono()
     chrono.start()
 
@@ -103,20 +111,17 @@ def lte_deinit(lte, wdt):
         if lte.isconnected():
             with TimedStep(chrono, "LTE disconnect"):
                 lte.disconnect()
-
-        wdt.feed()
+                wdt.feed()
 
         if lte.isattached():
             with TimedStep(chrono, "LTE detach"):
                 lte.detach()
-
-        wdt.feed()
+                wdt.feed()
 
     finally:
         with TimedStep(chrono, "LTE deinit"):
             lte.deinit()
-
-        wdt.feed()
+            wdt.feed()
 
 class PushSequentialState(object):
     def __init__(self, dirname, fname=None, progress=None, totalsize=None):
@@ -197,14 +202,16 @@ def push_sequential(cc, dirname, ss, wdt):
         while not pushstate.dir_complete():
             while not pushstate.file_complete():
 
-                _logger.info("Sending from %s", pushstate)
+                if total_time_up(cc):
+                    _logger.warning("Time up before finished sending. Quitting for now.")
+                    return
 
-                with TimedStep(chrono, "Reading data"):
+                with TimedStep(chrono, "Reading data %s" % pushstate):
                     with open(pushstate.fpath(), "rb") as f:
                         f.seek(pushstate.progress)
                         readbytes = f.readinto(buf)
                     senddata = mv[:readbytes]
-                    _logger.info("%s read %d bytes", pushstate.fpath(), readbytes)
+                    _logger.debug("%s read %d bytes", pushstate.fpath(), readbytes)
                     wdt.feed()
 
                 if _logger.level <= logging.DEBUG:
@@ -246,9 +253,8 @@ def transmit_data(cc, cs, wdt):
     chrono = machine.Timer.Chrono()
     chrono.start()
 
-    with TimedStep(chrono, "Sending alive ping"):
-        url = "{}/ou/{}/alive".format(cc.sync_dest, cc.ou_id)
-        _logger.info("urequests POST %s", url)
+    url = "{}/ou/{}/alive".format(cc.sync_dest, cc.ou_id)
+    with TimedStep(chrono, "Sending alive ping: %s" % url):
         resp = urequests.post(url)
         _logger.info("Response (%s): %s", resp.status_code, resp.text)
 
