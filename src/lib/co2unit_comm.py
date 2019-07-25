@@ -115,60 +115,92 @@ def lte_deinit(lte, wdt):
 
         wdt.feed()
 
+class PushSequentialState(object):
+    def __init__(self, dirname, fname=None, progress=None, totalsize=None):
+        self.fname = fname
+        self.progress = progress
+        self.totalsize = totalsize
+
+        self.dirname = dirname
+        # Make sure directory exists before trying to read it
+        fileutil.mkdirs(dirname)
+        self.dirlist = os.listdir(dirname)
+        self.dirlist.sort()
+        if not self.dirlist:
+            _logger.info("%s: dir is empty. Nothing to push", dirname)
+
+        self.dirindex = None
+        self.update_by_fname(fname, progress)
+
+    def to_list(self):
+        return [self.fname, self.progress, self.totalsize]
+
+    def __str__(self):
+        return str(self.to_list())
+
+    def fpath(self):
+        return "/".join([self.dirname, self.fname])
+
+    def update_by_fname(self, fname, progress=None):
+        if not fname:
+            self.update_by_dirindex(0)
+        elif fname not in self.dirlist:
+            _logger.warning("%s not in %s, starting at beggining of dir", fname, self.dirname)
+            self.update_by_dirindex(0)
+        else:
+            self.fname = fname
+            self.progress = progress
+            self.update_by_dirindex(self.dirlist.index(fname))
+
+    def update_by_dirindex(self, dirindex):
+        self.dirindex = dirindex
+        if self.dirindex < len(self.dirlist):
+            fname = self.dirlist[dirindex]
+            if fname != self.fname:
+                self.fname = fname
+                self.progress = 0
+            self.totalsize = os.stat(self.fpath())[6]
+
+    def update_to_next_file(self):
+        self.update_by_dirindex(self.dirindex + 1)
+
+    def add_progress(self, p_add):
+        self.progress += p_add
+
+    def file_complete(self):
+        assert self.progress <= self.totalsize, "progress greater than totalsize: {}".format(self)
+        return self.progress == self.totalsize
+
+    def dir_complete(self):
+        assert self.dirindex <= len(self.dirlist), "dirindex out of bounds"
+        return self.dirindex == len(self.dirlist)
+
 
 def push_sequential(cc, dirname, ss, wdt):
     chrono = machine.Timer.Chrono()
     chrono.start()
 
-    # Make sure directory exists before trying to read it
-    fileutil.mkdirs(dirname)
-
-    dirlist = os.listdir(dirname)
-    dirlist.sort()
-
     wdt.feed()
 
-    if not dirlist:
-        _logger.info("push_sequential dir %s is empty. Nothing to push", dirname)
-        return
-
     key = "ack_file"
-    try:
-        fname, progress, totalsize = ss[key]
-    except:
-        fname, progress, totalsize = [None, None, None]
-
-    if not fname or fname not in dirlist:
-        if fname:
-            _logger.warning("Current file %s is not in directory, starting at beggining of dir")
-        fname, progress, totalsize = [dirlist[0], None, None]
-        dirindex = 0
+    if key in ss:
+        pushstate = PushSequentialState(dirname, *ss[key])
     else:
-        dirindex = dirlist.index(fname)
+        pushstate = PushSequentialState(dirname)
 
     try:
         buf = bytearray(cc.send_chunk_size)
+        mv = memoryview(buf)
 
-        while dirindex < len(dirlist):
-            wdt.feed()
+        while not pushstate.dir_complete():
 
-            if fname != dirlist[dirindex]:
-                fname, progress, totalsize = [dirlist[dirindex], None, None]
+            with open(pushstate.fpath(), "rb") as f:
 
-            fpath = "{}/{}".format(dirname, fname)
-
-            totalsize = fileutil.file_size(fpath)
-            if not progress:
-                progress = 0
-
-            with open(fpath, "rb") as f:
-
-                while progress < totalsize:
-                    _logger.info("Sending from %s starting at %9d of %9d", fpath, progress, totalsize)
+                while not pushstate.file_complete():
+                    _logger.info("Sending from %s", pushstate)
                     with TimedStep(chrono, "Reading data"):
-                        f.seek(progress)
+                        f.seek(pushstate.progress)
                         readbytes = f.readinto(buf)
-                        mv = memoryview(buf)
                         senddata = mv[:readbytes]
                         wdt.feed()
 
@@ -177,22 +209,30 @@ def push_sequential(cc, dirname, ss, wdt):
                         _logger.debug("Read data: '%s' ...", s.getvalue())
                         wdt.feed()
 
-                    url = "{}/ou/{}/push-sequential/{}?offset={}".format(cc.sync_dest, cc.ou_id, fpath, progress)
+                    url = "{}/ou/{}/push-sequential/{}?offset={}".format(\
+                            cc.sync_dest, cc.ou_id, pushstate.fpath(), pushstate.progress)
+
                     with TimedStep(chrono, "Sending data: %s (%d bytes)" % (url, readbytes)):
                         resp = urequests.put(url, data=senddata)
                         if resp.status_code != 200:
                             raise Exception("Error sending data: %s --- %s %s" % (url, resp.status_code, resp.content))
                         _logger.info("Response (%s): %s", resp.status_code, repr(resp.content))
-                        progress += readbytes
+                        pushstate.add_progress(readbytes)
                         wdt.feed()
 
-            # TODO: quit after a timeout
-            dirindex += 1
+                        parsed = resp.json()
+                        if "ack_file" in parsed:
+                            fname, progress, totalize = parsed["ack_file"]
+                            _logger.info("New progress in server response: %s, %d", fname, progress)
 
-        _logger.info("push_sequential dir %s: all synced", dirname)
+            # TODO: quit after a timeout
+            pushstate.update_to_next_file()
+            wdt.feed()
+
+        _logger.info("%s: all synced", dirname)
     finally:
-        ss[key] = [fname, progress, totalsize]
-        _logger.info("push_sequential dir %s: %09s: %-20s bytes %09s of %09s", dirname, key, fname, progress, totalsize)
+        ss[key] = pushstate.to_list()
+        _logger.info("%s: %s", dirname, ss[key])
 
 def transmit_data(cc, cs, wdt):
     chrono = machine.Timer.Chrono()
