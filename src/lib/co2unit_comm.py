@@ -8,6 +8,7 @@ import uio
 import urequests
 import usocket
 
+import co2unit_errors
 import configutil
 import fileutil
 import timeutil
@@ -28,12 +29,14 @@ COMM_CONF_DEFAULTS = {
             ],
         "ntp_max_drift_secs": 4,
         "send_chunk_size": 4*1024,
+        "connect_backoff_max": 7,
         }
 
 STATE_DIR = "var"
 COMM_STATE_PATH = STATE_DIR + "/ou-comm-state.json"
 COMM_STATE_DEFAULTS = {
-        "sync_states": {}
+        "sync_states": {},
+        "connect_backoff": [0, 0],
         }
 
 class TimedStep(object):
@@ -287,14 +290,31 @@ def comm_sequence(hw):
         return
 
     try:
-        # LTE init seems to be successful more often if we give it time first
-        _logger.info("Giving LTE time to boot before initializing it...")
-        time.sleep_ms(1000)
-        wdt.feed()
+        # Check connect backoff state and skip this round if need be
+        tried, backoff = cs.connect_backoff
+        if tried < backoff:
+            _logger.info("Skipping comm due to backoff: %s/%s", tried, backoff)
+            co2unit_errors.warning(hw, "Skipping comm due to backoff: %s/%s" % (tried,backoff))
+            cs.connect_backoff = [tried+1, backoff]
+            return
+
+        with TimedStep(chrono, "Give LTE a moment to boot"):
+            # LTE init seems to be successful more often if we give it time first
+            time.sleep_ms(1000)
+            wdt.feed()
 
         with TimedStep(chrono, "LTE init and connect"):
-            lte = lte_connect(wdt)
-            wdt.feed()
+            try:
+                # Attempt to connect
+                lte = lte_connect(wdt)
+                # If connection successful, reset backoff
+                cs.connect_backoff = [0, 0]
+                wdt.feed()
+            except:
+                # If connection fails, increase backoff
+                backoff = min(backoff + 1, cc.connect_backoff_max)
+                cs.connect_backoff = [1, backoff]
+                raise
 
         with TimedStep(chrono, "Set time from NTP", suppress_exception=True):
             ts = timeutil.fetch_ntp_time()
