@@ -4,7 +4,7 @@ Gloss over some tricky spots in Pycom's API
 
 import pycom
 
-def nvs_get(key, value, default=None):
+def nvs_get(key, default=None):
     """ Reads non-volatile state and returns default if not defined
 
     Some Pycom versions return None if the value is undefined. Some throw an
@@ -28,12 +28,12 @@ def nvs_erase(key):
     except:
         return None
 
-def mk_on_boot_fn(key):
-    def on_boot_fn(value=None, default=None, erase=False):
+def mk_on_boot_fn(key, default=None):
+    def on_boot_fn(value=None, default=default, erase=False):
         if erase:
             return nvs_erase(key)
         elif value == None:
-            return nvs_get(key, default)
+            return nvs_get(key, default=default)
         else:
             return pycom.nvs_set(key, value)
 
