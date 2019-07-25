@@ -8,7 +8,7 @@ import time
 _logger = logging.getLogger("co2unit_measure")
 #_logger.setLevel(logging.DEBUG)
 
-def read_sensors(hw):
+def read_sensors(hw, flash_count=0):
     wdt = machine.WDT(timeout=10*1000)
 
     rtime = time.gmtime()
@@ -93,17 +93,13 @@ def read_sensors(hw):
     # co2_ms did not propagate like the others, so get it again
     co2_ms = chrono.read_ms()
 
-    try:
-        flash_reading = hw.flash_pin()
-    except Exception as e:
-        _logger.error("Unexpected error checking flash pin. %s: %s", type(e).__name__, e)
-
     reading = {
             "rtime":    rtime,
             "co2":      co2_readings,
             "co2_ms":   co2_ms,
             "etemp":    etemp_reading,
             "etemp_ms": etemp_ms,
+            "flash_count": flash_count,
             }
     return reading
 
@@ -143,9 +139,9 @@ def store_reading(reading, reading_data_dir):
     _logger.info("Wrote row to %s: %s\t", target, row)
     return (target, row)
 
-def measure_sequence(hw):
+def measure_sequence(hw, flash_count=0):
     _logger.info("Starting measurement sequence...")
-    reading = read_sensors(hw)
+    reading = read_sensors(hw, flash_count=flash_count)
     _logger.info("Reading: %s", reading)
     reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
     return store_reading(reading, reading_data_dir)

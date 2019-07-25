@@ -109,6 +109,16 @@ class Co2UnitHw(object):
             self._flash_pin = Pin(self._flash_pin_name)
         return self._flash_pin
 
+    def set_wake_on_flash_pin(self):
+        # Flash pin goes low on light detection
+        fp = self.flash_pin()
+        if fp() == 0:
+            _logger.warning("Light sensor is still triggered. Skipping wakeup to avoid an infinite wake loop.")
+        else:
+            pins = [self._flash_pin_name]
+            _logger.info("Setting wakeup on %s", pins)
+            machine.pin_deepsleep_wakeup(pins=pins, mode=machine.WAKEUP_ALL_LOW)
+
     def co2(self):
         if not self._co2:
             _logger.debug("Initializing co2 sensor")
@@ -193,11 +203,15 @@ class Co2UnitHw(object):
             except:
                 _logger.exception("Could not mount SD card")
 
-        _logger.info("Cutting power to peripherals")
         try:
             self.power_peripherals(False)
         except:
             _logger.exception("Could not cut power to peripherals")
+
+        try:
+            self.set_wake_on_flash_pin()
+        except:
+            _logger.exception("Could not set wake on flash pin")
 
 
 class SdCardWrapper(sdcard.SDCard):

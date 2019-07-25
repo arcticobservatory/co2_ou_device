@@ -18,6 +18,7 @@ STATE_UPDATE            = const(4)
 STATE_SCHEDULE          = const(5)
 STATE_MEASURE           = const(6)
 STATE_COMMUNICATE       = const(7)
+STATE_RECORD_FLASH      = const(8)
 
 SCHED_MINUTES   = const(0)
 SCHED_DAILY     = const(1)
@@ -30,6 +31,8 @@ SCHEDULE_DEFAULT = {
         }
 
 next_state_on_boot = pycom_util.mk_on_boot_fn("co2_wake_next")
+
+nv_flash_count = pycom_util.mk_on_boot_fn("co2_flash_count", default=0)
 
 def determine_state_after_reset():
     # Specific reset causes:
@@ -52,7 +55,11 @@ def determine_state_after_reset():
         elif reset_cause == machine.WDT_RESET:
             _logger.info("Self-reset or watchdog reset")
         elif reset_cause == machine.DEEPSLEEP_RESET:
-            _logger.info("Woke up from deep sleep")
+            wake_reason = machine.wake_reason()
+            _logger.info("Woke up from deep sleep. Reason %s", wake_reason)
+            if wake_reason[0] == machine.PIN_WAKE:
+                _logger.info("Woke via pin")
+                return STATE_RECORD_FLASH
 
         # TODO: On recovery from crash, make sure modem is off
 
@@ -62,6 +69,21 @@ def determine_state_after_reset():
 
     _logger.warning("Unknown wake circumstances")
     return STATE_UNKNOWN
+
+def record_flash_sequence(hw):
+    _logger.info("Starting flash record sequence")
+    fc = nv_flash_count()
+    fc += 1
+    nv_flash_count(fc)
+    _logger.info("New flash count: %d", fc)
+    remaining = machine.remaining_sleep_time()
+    if remaining:
+        _logger.info("%d ms remaining. Going directly back to sleep", remaining)
+        hw.set_wake_on_flash_pin()
+        machine.deepsleep(remaining)
+    else:
+        _logger.warning("machine.remaining_sleep_time() reports 0. Falling back to scheduling")
+        return 0
 
 def crash_recovery_sequence():
     _logger.info("Starting crash recovery sequence...")
@@ -135,12 +157,19 @@ def schedule_wake(hw):
     return sleep_sec * 1000
 
 def run(hw, next_state):
-    # In case of unexpected reset, go to crash recovery
-    next_state_on_boot(STATE_CRASH_RECOVERY)
-
     if next_state == STATE_UNKNOWN:
         _logger.warning("Unknown start state. Default to crash recovery")
         next_state = STATE_CRASH_RECOVERY
+
+    if next_state == STATE_RECORD_FLASH:
+        record_flash_sequence(hw)
+        # If the function returns, it was because there was no/unknown
+        # remainining sleep time. Reboot to schedule.
+        next_state_on_boot(STATE_SCHEDULE)
+        return 0
+
+    # In case of unexpected reset, go to crash recovery
+    next_state_on_boot(STATE_CRASH_RECOVERY)
 
     # Turn on peripherals
     hw.power_peripherals(True)
@@ -203,7 +232,9 @@ def run(hw, next_state):
 
     if next_state == STATE_MEASURE:
         import co2unit_measure
-        co2unit_measure.measure_sequence(hw)
+        co2unit_measure.measure_sequence(hw, flash_count=nv_flash_count())
+        _logging.info("Resetting flash count after recording it.")
+        nv_flash_count(0)
 
     if next_state == STATE_COMMUNICATE:
         import co2unit_comm

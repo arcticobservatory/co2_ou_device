@@ -46,11 +46,14 @@ try:
 
     # Area for temporary test overrides
     # --------------------------------------------------
+    # next_state = co2unit_main.STATE_MEASURE
+    # co2unit_main.run(hw, next_state)
     # exit_to_repl_after = True
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
     # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
     # next_state = co2unit_main.STATE_MEASURE
+    # next_state = co2unit_main.STATE_RECORD_FLASH
     # raise Exception("Dummy Exception")
     # --------------------------------------------------
 
@@ -63,7 +66,7 @@ try:
     hw.prepare_for_shutdown()
     if not sleep_ms:
         print("Resetting...")
-        time.sleep_ms(5)    # Give a moment for output buffer to flush
+        time.sleep_ms(20)    # Give a moment for output buffer to flush
         machine.reset()
     else:
         print("Sleeping...")
