@@ -30,6 +30,7 @@ class Co2UnitHw(object):
     SDCARD_MOUNT_POINT = "/sd"
 
     def __init__(self):
+        self._power_peripherals = None
         self._mosfet_pin = None
         self._sdcard = None
         self._ertc = None
@@ -123,12 +124,15 @@ class Co2UnitHw(object):
         return self._etemp
 
     def power_peripherals(self, value=None):
-        mosfet_pin = self.mosfet_pin()
-        if mosfet_pin == None:
-            _logger.debug("No mosfet pin on this build")
-            return value
-        else:
-            return mosfet_pin(value)
+        if value != None:
+            if self.mosfet_pin() == None:
+                _logger.info("No mosfet pin on this build")
+            else:
+                _logger.info("Setting power pin %s", value)
+                self.mosfet_pin()(value)
+            self._power_peripherals = value
+
+        return self._power_peripherals
 
     def sync_to_most_reliable_rtc(self, max_drift_secs=4):
         irtc = machine.RTC()
