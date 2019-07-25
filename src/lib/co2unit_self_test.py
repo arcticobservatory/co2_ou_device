@@ -163,37 +163,35 @@ def quick_test_hw(hw):
     chrono.start()
 
     with CheckStep(FLAG_MOSFET_PIN, suppress_exception=True):
-        mosfet_pin = hw.mosfet_pin()
-        if mosfet_pin:
-            _logger.info("Mosfet pin state: %s", mosfet_pin())
+        if hw.mosfet_pin:
+            _logger.info("Mosfet pin state: %s", hw.mosfet_pin())
         wdt.feed()
 
     with CheckStep(FLAG_SD_CARD, suppress_exception=True):
         import os
-        sdcard = hw.sdcard()
         mountpoint = "/co2_sd_card_test"
-        os.mount(sdcard, mountpoint)
+        os.mount(hw.sdcard, mountpoint)
         contents = os.listdir(mountpoint)
         os.unmount(mountpoint)
         _logger.info("SD card OK. Contents: %s", contents)
         wdt.feed()
 
     with CheckStep(FLAG_ERTC, suppress_exception=True):
-        ertc = hw.ertc()
+        ertc = hw.ertc
         time_tuple = ertc.get_time()
         _logger.info("External RTC ok. Current time: %s", time_tuple)
         wdt.feed()
 
     with CheckStep(FLAG_CO2, suppress_exception=True):
         import explorir
-        co2 = hw.co2()
+        co2 = hw.co2
         co2.set_mode(explorir.EXPLORIR_MODE_POLLING)
         reading = co2.read_co2()
         _logger.info("CO2 sensor ok. Current level: %d ppm", reading)
         wdt.feed()
 
     with CheckStep(FLAG_ETEMP, suppress_exception=True):
-        etemp = hw.etemp()
+        etemp = hw.etemp
         _logger.debug("Starting external temp read. Can take up to 750ms.")
         etemp.start_conversion()
         chrono.reset()
@@ -274,7 +272,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 ntp_tuple = time.gmtime(ts)
                 irtc = RTC()
                 irtc.init(ntp_tuple)
-                hw.ertc().save_time()
+                hw.ertc.save_time()
                 _logger.info("RTC set from NTP %s; drift was %d s", ntp_tuple, idrift)
             failures &= ~FLAG_TIME_SOURCE   # Clear FLAG_TIME_SOURCE if previously set
             _logger.info("Got time with NTP (%d ms). Shutting down...", chrono.read_ms())

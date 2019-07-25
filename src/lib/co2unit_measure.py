@@ -38,7 +38,7 @@ def read_sensors(hw):
     # Start temperature readings
     try:
         _logger.debug("Starting external temp read. Can take up to 750ms.")
-        etemp = hw.etemp()
+        etemp = hw.etemp
         etemp.start_conversion()
     except Exception as e:
         _logger.error("Unexpected error starting etemp reading. %s: %s", type(e).__name__, e)
@@ -49,7 +49,7 @@ def read_sensors(hw):
     # Init communication with CO2 sensor
     try:
         _logger.debug("Init CO2 sensor...")
-        co2 = hw.co2()
+        co2 = hw.co2
         co2.set_mode(explorir.EXPLORIR_MODE_POLLING);
     except Exception as e:
         _logger.error("Unexpected error initializing CO2 sensor. %s: %s", type(e).__name__, e)

@@ -79,11 +79,13 @@ class Co2UnitHw(object):
         else:
             raise ValueError("Unknown pinset value %s" % (pinset))
 
+    @property
     def mosfet_pin(self):
         if not self._mosfet_pin and self._mosfet_pin_name:
             self._mosfet_pin = Pin(self._mosfet_pin_name, mode=Pin.OUT)
         return self._mosfet_pin
 
+    @property
     def sdcard(self):
         if not self._sdcard:
             _logger.debug("Initializing SD card")
@@ -98,6 +100,7 @@ class Co2UnitHw(object):
                     raise
         return self._sdcard
 
+    @property
     def ertc(self):
         if not self._ertc:
             _logger.debug("Initializing external RTC")
@@ -109,6 +112,7 @@ class Co2UnitHw(object):
             self._flash_pin = Pin(self._flash_pin_name)
         return self._flash_pin
 
+    @property
     def co2(self):
         if not self._co2:
             _logger.debug("Initializing co2 sensor")
@@ -116,6 +120,7 @@ class Co2UnitHw(object):
             self._co2 = explorir.ExplorIr(uart, scale=10)
         return self._co2
 
+    @property
     def etemp(self):
         if not self._etemp:
             _logger.debug("Initializing external temp sensor")
@@ -125,18 +130,18 @@ class Co2UnitHw(object):
 
     def power_peripherals(self, value=None):
         if value != None:
-            if self.mosfet_pin() == None:
+            if self.mosfet_pin == None:
                 _logger.info("No mosfet pin on this build")
             else:
                 _logger.info("Setting power pin %s", value)
-                self.mosfet_pin()(value)
+                self.mosfet_pin(value)
             self._power_peripherals = value
 
         return self._power_peripherals
 
     def sync_to_most_reliable_rtc(self, max_drift_secs=4):
         irtc = machine.RTC()
-        ertc = self.ertc()
+        ertc = self.ertc
 
         itime = irtc.now()
         etime = ertc.get_time()
@@ -165,7 +170,7 @@ class Co2UnitHw(object):
 
     def set_both_rtcs(self, ts, max_drift_secs=4):
         irtc = machine.RTC()
-        ertc = self.ertc()
+        ertc = self.ertc
 
         idrift = ts - time.mktime(irtc.now())
 
@@ -180,7 +185,7 @@ class Co2UnitHw(object):
     def mount_sd_card(self):
         if not self.sd_mounted:
             _logger.info("Mounting SD card")
-            os.mount(self.sdcard(), self.SDCARD_MOUNT_POINT)
+            os.mount(self.sdcard, self.SDCARD_MOUNT_POINT)
         else:
             _logger.debug("SD card already mounted")
         self.sd_mounted = True
