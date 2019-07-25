@@ -88,11 +88,12 @@ class Co2UnitHw(object):
     @property
     def sdcard(self):
         if not self._sdcard:
+            import pycom_util
             _logger.debug("Initializing SD card")
-            self._spi = SpiWrapper()
+            self._spi = pycom_util.SpiWrapper()
             self._spi.init(SPI.MASTER)
             try:
-                self._sdcard = SdCardWrapper(self._spi, PinWrapper(self._sd_cs_pin_name))
+                self._sdcard = SdCardWrapper(self._spi, pycom_util.PinWrapper(self._sd_cs_pin_name))
             except OSError as e:
                 if "no sd card" in str(e).lower():
                     raise NoSdCardError(e)
@@ -256,43 +257,3 @@ class SdCardWrapper(sdcard.SDCard):
             nblocks -= 1
 
         return 0
-
-class SpiWrapper(SPI):
-    """
-    Wrap the SPI driver for compatibility with the SDCard driver
-
-    The SDCard driver calls SPI read commands with two positional arguments:
-
-        self.spi.read(1, 0xff)
-
-    The Pycom firmware's SPI class does not support that. It expects the call
-    to use keyword arguments:
-
-        self.spi.read(1, write=0xff)
-
-    This class translates the SDCard calls to the keyword call that the Pycom
-    SPI class understands.
-    """
-
-    def read(self, nbytes, token):
-        return super().read(nbytes, write=token)
-
-    def readinto(self, buf, token):
-        return super().readinto(buf, write=token)
-
-class PinWrapper(Pin):
-    """
-    Wrap the Pin class for compatibility with the SDCard driver
-
-    The SDCard driver sets pins with methods .high() and .low().
-
-    The Pycom firmware's Pin class does not support this. The object itself is
-    callable and accepts a value. This class translates the SDCard calling
-    style to one the Pycom Pin class understands.
-    """
-
-    def high(self):
-        return self(1)
-
-    def low(self):
-        return self(0)
