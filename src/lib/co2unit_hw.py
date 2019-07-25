@@ -179,9 +179,10 @@ class Co2UnitHw(object):
 
     def mount_sd_card(self):
         if not self.sd_mounted:
+            _logger.info("Mounting SD card")
             os.mount(self.sdcard(), self.SDCARD_MOUNT_POINT)
         else:
-            _logger.warning("SD card already mounted")
+            _logger.debug("SD card already mounted")
         self.sd_mounted = True
 
     def prepare_for_shutdown(self):

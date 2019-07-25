@@ -7,8 +7,9 @@ import fileutil
 _logger = logging.getLogger("errors")
 #_logger.setLevel(logging.DEBUG)
 
-def record_error(hw, exc, msg):
+def _record(hw, level, msg, exc=None):
     _logger.debug("Attempting to write error in log on SD card...")
+
     if not hw.power_peripherals():
         hw.power_peripherals(True)
         _logger.info("Giving the SD card a moment to boot...")
@@ -19,9 +20,14 @@ def record_error(hw, exc, msg):
     errors_match = ("errors-", ".txt")
 
     target = fileutil.prep_append_file(dir=errors_dir, match=errors_match)
-
     with open(target, "at") as f:
-        f.write("----- {}\n".format(time.gmtime()))
-        f.write("{}\n".format(msg))
-        sys.print_exception(exc, f)
+        f.write("----- {} {:5} {}\n".format(time.gmtime(), level, msg))
+        if exc:
+            sys.print_exception(exc, f)
     _logger.info("Recorded error successfully to %s", target)
+
+def record_error(hw, exc, msg):
+    _record(hw, "EXC", msg, exc)
+
+def warning(hw, msg):
+    _record(hw, "WARN", msg)
