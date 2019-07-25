@@ -172,7 +172,6 @@ class PushSequentialState(object):
         return self.progress == self.totalsize
 
     def dir_complete(self):
-        assert self.dirindex <= len(self.dirlist), "dirindex out of bounds"
         return self.dirindex == len(self.dirlist)
 
 
@@ -193,37 +192,43 @@ def push_sequential(cc, dirname, ss, wdt):
         mv = memoryview(buf)
 
         while not pushstate.dir_complete():
+            while not pushstate.file_complete():
 
-            with open(pushstate.fpath(), "rb") as f:
+                _logger.info("Sending from %s", pushstate)
 
-                while not pushstate.file_complete():
-                    _logger.info("Sending from %s", pushstate)
-                    with TimedStep(chrono, "Reading data"):
+                with TimedStep(chrono, "Reading data"):
+                    with open(pushstate.fpath(), "rb") as f:
                         f.seek(pushstate.progress)
                         readbytes = f.readinto(buf)
-                        senddata = mv[:readbytes]
-                        wdt.feed()
+                    senddata = mv[:readbytes]
+                    _logger.info("%s read %d bytes", pushstate.fpath(), readbytes)
+                    wdt.feed()
 
-                    if _logger.level <= logging.DEBUG:
-                        s = uio.BytesIO(mv)#[:40])
-                        _logger.debug("Read data: '%s' ...", s.getvalue())
-                        wdt.feed()
+                if _logger.level <= logging.DEBUG:
+                    s = uio.BytesIO(mv)#[:40])
+                    _logger.debug("Read data: '%s' ...", s.getvalue())
+                    wdt.feed()
 
-                    url = "{}/ou/{}/push-sequential/{}?offset={}".format(\
-                            cc.sync_dest, cc.ou_id, pushstate.fpath(), pushstate.progress)
+                url = "{}/ou/{}/push-sequential/{}?offset={}".format(\
+                        cc.sync_dest, cc.ou_id, pushstate.fpath(), pushstate.progress)
 
-                    with TimedStep(chrono, "Sending data: %s (%d bytes)" % (url, readbytes)):
-                        resp = urequests.put(url, data=senddata)
-                        if resp.status_code != 200:
-                            raise Exception("Error sending data: %s --- %s %s" % (url, resp.status_code, resp.content))
-                        _logger.info("Response (%s): %s", resp.status_code, repr(resp.content))
+                with TimedStep(chrono, "Sending data: %s (%d bytes)" % (url, readbytes)):
+                    resp = urequests.put(url, data=senddata)
+                    _logger.info("Response (%s): %s", resp.status_code, repr(resp.content)[0:100])
+                    wdt.feed()
+
+                    if resp.status_code == 200:
                         pushstate.add_progress(readbytes)
-                        wdt.feed()
 
-                        parsed = resp.json()
-                        if "ack_file" in parsed:
-                            fname, progress, totalize = parsed["ack_file"]
-                            _logger.info("New progress in server response: %s, %d", fname, progress)
+                    parsed = resp.json()
+                    if "ack_file" in parsed:
+                        fname, progress, totalize = parsed["ack_file"]
+                        _logger.info("New progress in server response: %s, %d", fname, progress)
+                        pushstate.update_by_fname(fname, progress)
+                    wdt.feed()
+
+                    if resp.status_code != 200:
+                        raise Exception("Error sending data: %s --- %s %s" % (url, resp.status_code, repr(resp.content)[0:300]))
 
             # TODO: quit after a timeout
             pushstate.update_to_next_file()
