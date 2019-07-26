@@ -70,21 +70,12 @@ def determine_state_after_reset():
     _logger.warning("Unknown wake circumstances")
     return STATE_UNKNOWN
 
-def record_flash_sequence(hw):
-    _logger.info("Starting flash record sequence")
+def record_flash(hw):
+    _logger.info("Recording detected IR flash...")
     fc = nv_flash_count()
     fc += 1
     nv_flash_count(fc)
     _logger.info("New flash count: %d", fc)
-    remaining = machine.remaining_sleep_time()
-    if remaining:
-        hw.set_wake_on_flash_pin()
-        _logger.info("%d ms remaining. Going directly back to sleep", remaining)
-        _logger.info("Sleeping...")
-        machine.deepsleep(remaining)
-    else:
-        _logger.warning("machine.remaining_sleep_time() reports 0. Falling back to scheduling")
-        return 0
 
 def crash_recovery_sequence():
     _logger.info("Starting crash recovery sequence...")
@@ -163,11 +154,15 @@ def run(hw, next_state):
         next_state = STATE_CRASH_RECOVERY
 
     if next_state == STATE_RECORD_FLASH:
-        record_flash_sequence(hw)
-        # If the function returns, it was because there was no/unknown
-        # remainining sleep time. Reboot to schedule.
-        next_state_on_boot(STATE_SCHEDULE)
-        return 0
+        record_flash(hw)
+        remaining = machine.remaining_sleep_time()
+        if remaining:
+            _logger.info("Scheduled sleep remaining: %d ms", remaining)
+            return remaining
+        else:
+            _logger.warning("machine.remaining_sleep_time() reports 0. Falling back to scheduling")
+            next_state_on_boot(STATE_SCHEDULE)
+            return 0
 
     # In case of unexpected reset, go to crash recovery
     next_state_on_boot(STATE_CRASH_RECOVERY)
@@ -232,9 +227,10 @@ def run(hw, next_state):
         co2unit_update.update_sequence(hw.SDCARD_MOUNT_POINT)
 
     if next_state == STATE_MEASURE:
+        flash_count = nv_flash_count()
         import co2unit_measure
-        co2unit_measure.measure_sequence(hw, flash_count=nv_flash_count())
-        _logger.info("Resetting flash count after recording it.")
+        co2unit_measure.measure_sequence(hw, flash_count=flash_count)
+        _logger.info("Resetting flash count after recording it")
         nv_flash_count(0)
 
     if next_state == STATE_COMMUNICATE:
