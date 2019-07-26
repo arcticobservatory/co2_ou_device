@@ -16,12 +16,9 @@ import timeutil
 _logger = logging.getLogger("co2unit_comm")
 #_logger.setLevel(logging.DEBUG)
 
-UNIQUE_ID = ubinascii.hexlify(machine.unique_id()).decode("ascii")
-UNIQUE_ID = "co2unit-%s" % UNIQUE_ID
-
 COMM_CONF_PATH = "conf/ou-comm-config.json"
 COMM_CONF_DEFAULTS = {
-        "ou_id": UNIQUE_ID,
+        "ou_id": configutil.unit_unique_id(),
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
         "sync_dirs": [
             ["data/readings", "push_sequential"],
