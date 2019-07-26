@@ -57,7 +57,8 @@ try:
     # raise Exception("Dummy Exception")
     # --------------------------------------------------
 
-    sleep_ms = co2unit_main.run(hw, next_state)
+    sleep_ms, next_state = co2unit_main.run(hw, next_state)
+    co2unit_main.next_state_on_boot(next_state)
 
     if exit_to_repl_after:
         wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
@@ -93,7 +94,8 @@ except Exception as e:
     try:
         # Attempt to return to normal schedule
         import co2unit_main
-        sleep_ms = co2unit_main.schedule_wake(hw)
+        sleep_ms, next_state = co2unit_main.schedule_wake(hw)
+        co2unit_main.next_state_on_boot(next_state)
     except Exception as e2:
         print("Error trying to schedule wakeup...")
         sys.print_exception(e2)

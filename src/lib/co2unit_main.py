@@ -63,12 +63,25 @@ def determine_state_after_reset():
 
         # TODO: On recovery from crash, make sure modem is off
 
-        _logger.info("Checking scheduled action...")
         scheduled = next_state_on_boot(default=STATE_CRASH_RECOVERY)
+        _logger.info("Scheduled action 0x%02x", scheduled)
         return scheduled
 
     _logger.warning("Unknown wake circumstances")
     return STATE_UNKNOWN
+
+def user_interrupt_countdown(secs=5):
+    wdt = machine.WDT(timeout=10*1000)
+    _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
+    print("Continuing in", end="")
+    try:
+        for i in reversed(range(1, secs+1)):
+            print(" {}".format(i), end="")
+            for _ in range(0,100):
+                time.sleep_ms(10)
+                wdt.feed()
+    finally:
+        print()
 
 def record_flash(hw):
     _logger.info("Recording detected IR flash...")
@@ -145,26 +158,25 @@ def schedule_wake(hw):
         _logger.info("At  {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
 
     sleep_sec, _, action = countdowns[0]
-    next_state_on_boot(action)
-    return sleep_sec * 1000
+    return (sleep_sec * 1000, action)
 
-def run(hw, next_state):
-    if next_state == STATE_UNKNOWN:
+def run(hw, run_state):
+    if run_state == STATE_UNKNOWN:
         _logger.warning("Unknown start state. Default to crash recovery")
-        next_state = STATE_CRASH_RECOVERY
+        run_state = STATE_CRASH_RECOVERY
 
-    if next_state == STATE_RECORD_FLASH:
+    if run_state == STATE_RECORD_FLASH:
         record_flash(hw)
         remaining = machine.remaining_sleep_time()
         if remaining:
-            _logger.info("Scheduled sleep remaining: %d ms", remaining)
-            return remaining
+            scheduled_state = next_state_on_boot()
+            _logger.info("Before-wake scheduled state: 0x%02x; Sleep remaining: %d ms", scheduled_state, remaining)
+            return (remaining, scheduled_state)
         else:
-            _logger.warning("machine.remaining_sleep_time() reports 0. Falling back to scheduling")
-            next_state_on_boot(STATE_SCHEDULE)
-            return 0
+            _logger.warning("Could not determine previous schedule before wake, rescheduling...")
+            return (0, STATE_SCHEDULE)
 
-    # In case of unexpected reset, go to crash recovery
+    # In case of unexpected reset (e.g. watch-dog), go to crash recovery
     next_state_on_boot(STATE_CRASH_RECOVERY)
 
     # Turn on peripherals
@@ -173,33 +185,27 @@ def run(hw, next_state):
     # Self-test states
     # --------------------------------------------------
 
-    if next_state == STATE_CRASH_RECOVERY:
+    if run_state == STATE_CRASH_RECOVERY:
         crash_recovery_sequence()
-        next_state_on_boot(STATE_SCHEDULE)
-        return 0
+        return (0, STATE_SCHEDULE)
 
-    if next_state in [STATE_QUICK_HW_TEST, STATE_LTE_TEST]:
+    if run_state in [STATE_QUICK_HW_TEST, STATE_LTE_TEST]:
         # Reset heartbeat to initialize RGB LED, for test feedback
         reset_rgbled()
 
-        # Do self-test
         import co2unit_self_test
 
-        if next_state == STATE_QUICK_HW_TEST:
+        if run_state == STATE_QUICK_HW_TEST:
             co2unit_self_test.quick_test_hw(hw)
-            next_state_on_boot(STATE_LTE_TEST)
+            retval = (0, STATE_LTE_TEST)
 
-        elif next_state == STATE_LTE_TEST:
+        elif run_state == STATE_LTE_TEST:
             co2unit_self_test.test_lte_ntp(hw)
-            next_state_on_boot(STATE_UPDATE)
+            retval = (0, STATE_UPDATE)
 
-        # Pause to give user a chance to interrupt
         pycom.rgbled(0x0)
-        _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
-        for _ in range(0, 50):
-            time.sleep_ms(100)
-
-        return 0
+        user_interrupt_countdown()
+        return retval
 
     # States that require RTC
     # --------------------------------------------------
@@ -214,11 +220,11 @@ def run(hw, next_state):
 
     hw.mount_sd_card()
 
-    if next_state == STATE_SCHEDULE:
+    if run_state == STATE_SCHEDULE:
         _logger.info("Scheduling only....")
         return schedule_wake(hw)
 
-    if next_state == STATE_UPDATE:
+    if run_state == STATE_UPDATE:
         # Set persistent settings
         set_persistent_settings()
 
@@ -226,14 +232,14 @@ def run(hw, next_state):
         import co2unit_update
         co2unit_update.update_sequence(hw.SDCARD_MOUNT_POINT)
 
-    if next_state == STATE_MEASURE:
+    if run_state == STATE_MEASURE:
         flash_count = nv_flash_count()
         import co2unit_measure
         co2unit_measure.measure_sequence(hw, flash_count=flash_count)
         _logger.info("Resetting flash count after recording it")
         nv_flash_count(0)
 
-    if next_state == STATE_COMMUNICATE:
+    if run_state == STATE_COMMUNICATE:
         import co2unit_comm
         lte = co2unit_comm.comm_sequence(hw)
 
