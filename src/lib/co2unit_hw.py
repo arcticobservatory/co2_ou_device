@@ -9,12 +9,6 @@ from machine import RTC
 import machine
 import pycom
 
-from ds3231 import DS3231
-from onewire import DS18X20
-from onewire import OneWire
-import explorir
-import sdcard
-
 _logger = logging.getLogger("co2unit_hw")
 #_logger.setLevel(logging.DEBUG)
 
@@ -79,18 +73,22 @@ class Co2UnitHw(object):
         else:
             raise ValueError("Unknown pinset value %s" % (pinset))
 
+    @property
     def mosfet_pin(self):
         if not self._mosfet_pin and self._mosfet_pin_name:
             self._mosfet_pin = Pin(self._mosfet_pin_name, mode=Pin.OUT)
         return self._mosfet_pin
 
+    @property
     def sdcard(self):
         if not self._sdcard:
             _logger.debug("Initializing SD card")
-            self._spi = SpiWrapper()
+            import pycom_util
+            import sdcard_wrapper
+            self._spi = pycom_util.SpiWrapper()
             self._spi.init(SPI.MASTER)
             try:
-                self._sdcard = SdCardWrapper(self._spi, PinWrapper(self._sd_cs_pin_name))
+                self._sdcard = sdcard_wrapper.SdCardWrapper(self._spi, pycom_util.PinWrapper(self._sd_cs_pin_name))
             except OSError as e:
                 if "no sd card" in str(e).lower():
                     raise NoSdCardError(e)
@@ -98,9 +96,11 @@ class Co2UnitHw(object):
                     raise
         return self._sdcard
 
+    @property
     def ertc(self):
         if not self._ertc:
             _logger.debug("Initializing external RTC")
+            from ds3231 import DS3231
             self._ertc = DS3231(0, pins=self._i2c_pins_names)
         return self._ertc
 
@@ -119,34 +119,38 @@ class Co2UnitHw(object):
             _logger.info("Setting wakeup on %s", pins)
             machine.pin_deepsleep_wakeup(pins=pins, mode=machine.WAKEUP_ANY_HIGH)
 
+    @property
     def co2(self):
         if not self._co2:
             _logger.debug("Initializing co2 sensor")
+            import explorir
             uart = UART(*self._co2_uart_params)
             self._co2 = explorir.ExplorIr(uart, scale=10)
         return self._co2
 
+    @property
     def etemp(self):
         if not self._etemp:
             _logger.debug("Initializing external temp sensor")
-            onewire_bus = OneWire(Pin(self._onewire_pin_name))
-            self._etemp = DS18X20(onewire_bus)
+            import onewire
+            onewire_bus = onewire.OneWire(Pin(self._onewire_pin_name))
+            self._etemp = onewire.DS18X20(onewire_bus)
         return self._etemp
 
     def power_peripherals(self, value=None):
         if value != None:
-            if self.mosfet_pin() == None:
+            if self.mosfet_pin == None:
                 _logger.info("No mosfet pin on this build")
             else:
                 _logger.info("Setting power pin %s", value)
-                self.mosfet_pin()(value)
+                self.mosfet_pin(value)
             self._power_peripherals = value
 
         return self._power_peripherals
 
     def sync_to_most_reliable_rtc(self, max_drift_secs=4):
         irtc = machine.RTC()
-        ertc = self.ertc()
+        ertc = self.ertc
 
         itime = irtc.now()
         etime = ertc.get_time()
@@ -175,7 +179,7 @@ class Co2UnitHw(object):
 
     def set_both_rtcs(self, ts, max_drift_secs=4):
         irtc = machine.RTC()
-        ertc = self.ertc()
+        ertc = self.ertc
 
         idrift = ts - time.mktime(irtc.now())
 
@@ -190,7 +194,7 @@ class Co2UnitHw(object):
     def mount_sd_card(self):
         if not self.sd_mounted:
             _logger.info("Mounting SD card")
-            os.mount(self.sdcard(), self.SDCARD_MOUNT_POINT)
+            os.mount(self.sdcard, self.SDCARD_MOUNT_POINT)
         else:
             _logger.debug("SD card already mounted")
         self.sd_mounted = True
@@ -212,96 +216,3 @@ class Co2UnitHw(object):
             self.set_wake_on_flash_pin()
         except:
             _logger.exception("Could not set wake on flash pin")
-
-
-class SdCardWrapper(sdcard.SDCard):
-    """
-    Wrap the readblocks method so that it only reads one block at a time
-
-    This avoids a nasty error with file.readinto(buffer).
-
-    If you try to read into a buffer larger than one block (512 bytes),
-    the SDCard driver will use SPI CMD18 to try to read multiple blocks.
-
-    For some reason, on our hardware, this command will fail the second time
-    you try to use it, and it will put the SD card into an error state.
-
-    So this class replaces the readblocks method with one that makes multiple
-    calls to the underlying readblocks method, so that the driver only ever
-    uses SPI CMD17 to read one block at a time.
-
-    Note that readblocks is called by the MicroPython file and filesystem
-    abstractions. Those libraries deal with fragmented files by calling
-    readblocks multiple times. So we do not have to worry about fragmented
-    files here. If we are asked to read multiple blocks, it is because we do
-    want that sequence of blocks. Verified by watching debug output while
-    reading a fragmented file.
-
-    See also the firmware f_read function in fatfs/ff.c:
-    https://github.com/pycom/pycom-micropython-sigfox/blob/df9f237c3fc0985f80181c62ba4f4ebd636bfae5/lib/fatfs/ff.c#L3463
-    """
-
-    def readblocks(self, blocknum, buf):
-        BLOCKSIZE = const(512)
-
-        nblocks, err = divmod(len(buf), BLOCKSIZE)
-        if err:
-            _logger.error("Bad buffer size %d. Must be a multiple of %d", len(buf), BLOCKSIZE)
-            return 1
-
-        _logger.debug("readblocks blocknum=%d, len(buf)=%d, blocks=%d", blocknum, len(buf), nblocks)
-
-        offset = 0
-        mv = memoryview(buf)
-        while nblocks:
-            blockwindow = mv[offset : offset+BLOCKSIZE]
-            result = super().readblocks(blocknum, blockwindow)
-            if result!=0:
-                _logger.error("Error reading block %d. super().readblocks returned %d", blocknum, result)
-                return 1
-
-            offset += BLOCKSIZE
-            blocknum += 1       # See note above about non-contiguous files
-            nblocks -= 1
-
-        return 0
-
-class SpiWrapper(SPI):
-    """
-    Wrap the SPI driver for compatibility with the SDCard driver
-
-    The SDCard driver calls SPI read commands with two positional arguments:
-
-        self.spi.read(1, 0xff)
-
-    The Pycom firmware's SPI class does not support that. It expects the call
-    to use keyword arguments:
-
-        self.spi.read(1, write=0xff)
-
-    This class translates the SDCard calls to the keyword call that the Pycom
-    SPI class understands.
-    """
-
-    def read(self, nbytes, token):
-        return super().read(nbytes, write=token)
-
-    def readinto(self, buf, token):
-        return super().readinto(buf, write=token)
-
-class PinWrapper(Pin):
-    """
-    Wrap the Pin class for compatibility with the SDCard driver
-
-    The SDCard driver sets pins with methods .high() and .low().
-
-    The Pycom firmware's Pin class does not support this. The object itself is
-    callable and accepts a value. This class translates the SDCard calling
-    style to one the Pycom Pin class understands.
-    """
-
-    def high(self):
-        return self(1)
-
-    def low(self):
-        return self(0)
