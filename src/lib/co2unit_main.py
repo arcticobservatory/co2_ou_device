@@ -234,7 +234,7 @@ def run(hw, next_state):
     if next_state == STATE_MEASURE:
         import co2unit_measure
         co2unit_measure.measure_sequence(hw, flash_count=nv_flash_count())
-        _logging.info("Resetting flash count after recording it.")
+        _logger.info("Resetting flash count after recording it.")
         nv_flash_count(0)
 
     if next_state == STATE_COMMUNICATE:
