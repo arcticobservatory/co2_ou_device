@@ -8,10 +8,11 @@ import uio
 import urequests
 import usocket
 
-import co2unit_id
 import co2unit_errors
+import co2unit_id
 import configutil
 import fileutil
+import seqfile
 import timeutil
 
 _logger = logging.getLogger("co2unit_comm")
@@ -23,6 +24,7 @@ COMM_CONF_DEFAULTS = {
         "sync_dirs": [
             ["data/readings", "push_sequential"],
             ["errors", "push_sequential"],
+            ["updates", "pull_last_dir"],
             ],
         "ntp_max_drift_secs": 4,
         "send_chunk_size": 4*1024,
@@ -246,6 +248,40 @@ def push_sequential(ou_id, cc, dirname, ss, wdt):
         ss[key] = pushstate.to_list()
         _logger.info("%s: %s", dirname, ss[key])
 
+def fetch_dir_list(ou_id, cc, dirname, recursive=False):
+    chrono = machine.Timer.Chrono()
+    chrono.start()
+
+    url = "{}/ou/{}/{}?recursive={}".format(cc.sync_dest, ou_id.hw_id, dirname, recursive)
+    with TimedStep(chrono, "fetching dir list: %s" % (url)):
+        resp = urequests.get(url)
+        _logger.info("response (%s): %s", resp.status_code, repr(resp.content)[0:100])
+
+        if resp.status_code != 200:
+            raise exception("error: %s --- %s %s" % (url, resp.status_code, repr(resp.content)[0:300]))
+
+        dirlist = resp.json()
+        return dirlist
+
+def pull_last_dir(ou_id, cc, dirname, ss, wdt):
+    chrono = machine.Timer.Chrono()
+    chrono.start()
+
+    wdt.feed()
+
+    # Get dir list
+    dirlist = fetch_dir_list(ou_id, cc, dirname)
+    most_recent = seqfile.last_file_in_sequence(dirlist)
+    _logger.info("Latest in %s: %s", dirname, dirlist)
+    wdt.feed()
+
+    # Pull into temp zone
+    remote_dir = "/".join([dirname, most_recent])
+    dirlist = fetch_dir_list(ou_id, cc, dirname, recursive=True)
+    wdt.feed()
+
+    # If finished, move into updates
+
 def transmit_data(ou_id, cc, cs, wdt):
     chrono = machine.Timer.Chrono()
     chrono.start()
@@ -260,11 +296,10 @@ def transmit_data(ou_id, cc, cs, wdt):
             cs.sync_states[dirname] = {}
         ss = cs.sync_states[dirname]
 
-        if dirtype == "push_sequential":
-            push_sequential(ou_id, cc, dirname, ss, wdt)
-        else:
-            _logger.warning("Unknown sync type for %s: %s", sdir, stype)
-        _logger.info("ss: %s", ss)
+        if dirtype == "push_sequential": push_sequential(ou_id, cc, dirname, ss, wdt)
+        elif dirtype == "pull_last_dir": pull_last_dir(ou_id, cc, dirname, ss, wdt)
+        else: _logger.warning("Unknown sync type for %s: %s", sdir, stype)
+        _logger.info("ss[%s]: %s", dirname, ss)
 
 def comm_sequence(hw):
     """ Transmits data
