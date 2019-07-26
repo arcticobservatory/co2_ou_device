@@ -113,8 +113,9 @@ def reading_to_tsv_row(reading):
             "time": "{:02}:{:02}:{:02}".format(hh,mm,ss),
             "etemp": reading["etemp"],
             "co2s": co2s,
+            "flash_count": reading["flash_count"],
             }
-    row = "{date}\t{time}\t{etemp}\t{co2s}".format(**row_data)
+    row = "{date}\t{time}\t{etemp}\t{flash_count}\t{co2s}\n".format(**row_data)
     return row
 
 READING_FILE_MATCH = ("readings-", ".tsv")
