@@ -78,8 +78,9 @@ def record_flash_sequence(hw):
     _logger.info("New flash count: %d", fc)
     remaining = machine.remaining_sleep_time()
     if remaining:
-        _logger.info("%d ms remaining. Going directly back to sleep", remaining)
         hw.set_wake_on_flash_pin()
+        _logger.info("%d ms remaining. Going directly back to sleep", remaining)
+        _logger.info("Sleeping...")
         machine.deepsleep(remaining)
     else:
         _logger.warning("machine.remaining_sleep_time() reports 0. Falling back to scheduling")
