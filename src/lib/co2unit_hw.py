@@ -112,12 +112,12 @@ class Co2UnitHw(object):
     def set_wake_on_flash_pin(self):
         # Flash pin goes low on light detection
         fp = self.flash_pin()
-        if fp() == 0:
+        if fp() == 1:
             _logger.warning("Light sensor is still triggered. Skipping wakeup to avoid an infinite wake loop.")
         else:
             pins = [self._flash_pin_name]
             _logger.info("Setting wakeup on %s", pins)
-            machine.pin_deepsleep_wakeup(pins=pins, mode=machine.WAKEUP_ALL_LOW)
+            machine.pin_deepsleep_wakeup(pins=pins, mode=machine.WAKEUP_ANY_HIGH)
 
     def co2(self):
         if not self._co2:
