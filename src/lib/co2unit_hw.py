@@ -104,6 +104,7 @@ class Co2UnitHw(object):
             self._ertc = DS3231(0, pins=self._i2c_pins_names)
         return self._ertc
 
+    @property
     def flash_pin(self):
         if not self._flash_pin:
             self._flash_pin = Pin(self._flash_pin_name)
@@ -111,8 +112,7 @@ class Co2UnitHw(object):
 
     def set_wake_on_flash_pin(self):
         # Flash pin goes low on light detection
-        fp = self.flash_pin()
-        if fp() == 1:
+        if self.flash_pin() == 1:
             _logger.warning("Light sensor is still triggered. Skipping wakeup to avoid an infinite wake loop.")
         else:
             pins = [self._flash_pin_name]
