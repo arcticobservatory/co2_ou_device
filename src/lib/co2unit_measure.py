@@ -1,9 +1,12 @@
-import explorir
-import fileutil
 import logging
 import machine
 import os
 import time
+
+import co2unit_id
+import configutil
+import explorir
+import fileutil
 
 _logger = logging.getLogger("co2unit_measure")
 #_logger.setLevel(logging.DEBUG)
@@ -103,26 +106,30 @@ def read_sensors(hw, flash_count=0):
             }
     return reading
 
-def reading_to_tsv_row(reading):
+def make_row(ou_id, reading):
     (YY, MM, DD, hh, mm, ss, _, _) = reading["rtime"]
+    dateval = "{:04}-{:02}-{:02}".format(YY,MM,DD)
+    timeval = "{:02}:{:02}:{:02}".format(hh,mm,ss)
     co2s = reading["co2"]
-    co2s = [str(co2) for co2 in co2s]
-    co2s = "\t".join(co2s)
-    row_data = {
-            "date": "{:04}-{:02}-{:02}".format(YY,MM,DD),
-            "time": "{:02}:{:02}:{:02}".format(hh,mm,ss),
-            "etemp": reading["etemp"],
-            "co2s": co2s,
-            "flash_count": reading["flash_count"],
-            }
-    row = "{date}\t{time}\t{etemp}\t{co2s}\t{flash_count}".format(**row_data)
-    return row
+    etemp = reading["etemp"]
+    flash_count = reading["flash_count"]
+    row_arr = [
+            ou_id.hw_id,
+            ou_id.site_code,
+            dateval,
+            timeval,
+            etemp,
+            flash_count
+            ] + co2s
+    return row_arr
 
 READING_FILE_MATCH = ("readings-", ".tsv")
 READING_FILE_SIZE_CUTOFF = const(100 * 1024)
 
-def store_reading(reading, reading_data_dir):
-    row = reading_to_tsv_row(reading)
+def store_reading(ou_id, reading_data_dir, reading):
+    row = make_row(ou_id, reading)
+    row = "\t".join([str(i) for i in row])
+
     _logger.debug("Data row: %s", row)
     _logger.debug("Data row: %s bytes", len(row) + 1)
 
@@ -144,5 +151,8 @@ def measure_sequence(hw, flash_count=0):
     _logger.info("Starting measurement sequence...")
     reading = read_sensors(hw, flash_count=flash_count)
     _logger.info("Reading: %s", reading)
+
+    ou_id = configutil.read_config_json(co2unit_id.OU_ID_PATH, co2unit_id.OU_ID_DEFAULTS)
+
     reading_data_dir = hw.SDCARD_MOUNT_POINT + "/data/readings"
-    return store_reading(reading, reading_data_dir)
+    return store_reading(ou_id, reading_data_dir, reading)

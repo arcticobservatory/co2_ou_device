@@ -9,5 +9,5 @@ def hardware_id():
 OU_ID_PATH = "conf/ou-id.json"
 OU_ID_DEFAULTS = {
             "hw_id": hardware_id(),
-            "location_code": None,
+            "site_code": None,
         }
