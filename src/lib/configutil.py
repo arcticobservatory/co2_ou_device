@@ -4,14 +4,6 @@ import logging
 _logger = logging.getLogger("configutil")
 #_logger.setLevel(logging.DEBUG)
 
-def unit_unique_id():
-    import ubinascii
-    import machine
-
-    machine_id = ubinascii.hexlify(machine.unique_id()).decode("ascii")
-    unit_id = "co2unit-%s" % machine_id
-    return unit_id
-
 class Namespace(object):
     """ Converts a dictionary to an object with attribute access """
     def __init__(self, **kwargs):
@@ -35,6 +27,7 @@ def read_config_json(filename, defaults={}):
             raise e
 
     config = Namespace(**config)
+    _logger.info("%s: %s", filename, config)
     return config
 
 def save_config_json(filename, data):

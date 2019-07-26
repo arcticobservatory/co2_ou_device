@@ -8,6 +8,7 @@ import uio
 import urequests
 import usocket
 
+import co2unit_id
 import co2unit_errors
 import configutil
 import fileutil
@@ -18,7 +19,6 @@ _logger = logging.getLogger("co2unit_comm")
 
 COMM_CONF_PATH = "conf/ou-comm-config.json"
 COMM_CONF_DEFAULTS = {
-        "ou_id": configutil.unit_unique_id(),
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
         "sync_dirs": [
             ["data/readings", "push_sequential"],
@@ -180,7 +180,7 @@ class PushSequentialState(object):
         return self.dirindex == len(self.dirlist)
 
 
-def push_sequential(cc, dirname, ss, wdt):
+def push_sequential(ou_id, cc, dirname, ss, wdt):
     chrono = machine.Timer.Chrono()
     chrono.start()
 
@@ -217,7 +217,7 @@ def push_sequential(cc, dirname, ss, wdt):
                     wdt.feed()
 
                 url = "{}/ou/{}/push-sequential/{}?offset={}".format(\
-                        cc.sync_dest, cc.ou_id, pushstate.fpath(), pushstate.progress)
+                        cc.sync_dest, ou_id.hw_id, pushstate.fpath(), pushstate.progress)
 
                 with TimedStep(chrono, "Sending data: %s (%d bytes)" % (url, readbytes)):
                     resp = urequests.put(url, data=senddata)
@@ -246,11 +246,11 @@ def push_sequential(cc, dirname, ss, wdt):
         ss[key] = pushstate.to_list()
         _logger.info("%s: %s", dirname, ss[key])
 
-def transmit_data(cc, cs, wdt):
+def transmit_data(ou_id, cc, cs, wdt):
     chrono = machine.Timer.Chrono()
     chrono.start()
 
-    url = "{}/ou/{}/alive".format(cc.sync_dest, cc.ou_id)
+    url = "{}/ou/{}/alive".format(cc.sync_dest, ou_id.hw_id)
     with TimedStep(chrono, "Sending alive ping: %s" % url):
         resp = urequests.post(url)
         _logger.info("Response (%s): %s", resp.status_code, resp.text)
@@ -261,7 +261,7 @@ def transmit_data(cc, cs, wdt):
         ss = cs.sync_states[dirname]
 
         if dirtype == "push_sequential":
-            push_sequential(cc, dirname, ss, wdt)
+            push_sequential(ou_id, cc, dirname, ss, wdt)
         else:
             _logger.warning("Unknown sync type for %s: %s", sdir, stype)
         _logger.info("ss: %s", ss)
@@ -282,11 +282,9 @@ def comm_sequence(hw):
 
     os.chdir(hw.SDCARD_MOUNT_POINT)
 
+    ou_id = configutil.read_config_json(co2unit_id.OU_ID_PATH, co2unit_id.OU_ID_DEFAULTS)
     cc = configutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
-    _logger.info("comm_conf : %s", cc)
-
     cs = configutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
-    _logger.info("comm_state: %s", cs)
 
     if not cc.sync_dest:
         _logger.error("No sync destination")
@@ -325,7 +323,7 @@ def comm_sequence(hw):
             wdt.feed()
 
         with TimedStep(chrono, "Transmit data"):
-            transmit_data(cc, cs, wdt)
+            transmit_data(ou_id, cc, cs, wdt)
             wdt.feed()
 
     finally:

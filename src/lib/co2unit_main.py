@@ -5,7 +5,6 @@ import time
 import logging
 _logger = logging.getLogger("co2unit_main")
 
-import co2unit_hw
 import configutil
 import pycom_util
 
