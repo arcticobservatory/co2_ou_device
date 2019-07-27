@@ -1,12 +1,12 @@
 import time
 
-from machine import RTC
-
-import ntptime
-
-SECONDS_1970_TO_2000 = time.mktime((2000,1,1,0,0,0,0,0))
+class DummyWdt(object):
+    def init(self, timeout): pass
+    def feed(self): pass
 
 def fetch_ntp_time():
+    import ntptime
+    SECONDS_1970_TO_2000 = time.mktime((2000,1,1,0,0,0,0,0))
     # NTP returns seconds since 1900
     # The ntptime lib adjusts that to seconds since 2000
     seconds_2000_to_now = ntptime.time()
@@ -39,3 +39,15 @@ def seconds_until_time(next_tt):
     now = time.time()
     secs = time.mktime(next_tt) - now
     return secs
+
+def user_interrupt_countdown(secs=5, wdt=None):
+    print("Pausing before continuing. If you want to interrupt, now is a good time.")
+    print("Continuing in", end="")
+    try:
+        for i in reversed(range(1, secs+1)):
+            print(" {}".format(i), end="")
+            for _ in range(0,100):
+                time.sleep_ms(10)
+                if wdt: wdt.feed()
+    finally:
+        print()

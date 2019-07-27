@@ -148,7 +148,7 @@ class Co2UnitHw(object):
 
         return self._power_peripherals
 
-    def sync_to_most_reliable_rtc(self, max_drift_secs=4):
+    def sync_to_most_reliable_rtc(self, max_drift_secs=4, reset_ok=False):
         irtc = machine.RTC()
         ertc = self.ertc
 
@@ -175,7 +175,11 @@ class Co2UnitHw(object):
             _logger.info("External RTC reset; setting from internal %s", itime)
             ertc.save_time()
         else:
-            raise Exception("Both RTCs reset; no reliable time source; %s" % (itime,))
+            msg = "Both RTCs reset; no reliable time source; %s" % (itime,)
+            if reset_ok:
+                _logger.warning(msg)
+            else:
+                raise Exception(msg)
 
     def set_both_rtcs(self, ts, max_drift_secs=4):
         irtc = machine.RTC()

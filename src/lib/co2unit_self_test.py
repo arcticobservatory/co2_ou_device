@@ -3,7 +3,10 @@ import logging
 import time
 
 import pycom
+import pycom_util
+import timeutil
 
+wdt = timeutil.DummyWdt()
 
 _logger = logging.getLogger("co2unit_self_test")
 #_logger.setLevel(logging.DEBUG)
@@ -82,8 +85,6 @@ def display_errors_led(flags = None):
     global failures
     flags = flags or failures
 
-    wdt = machine.WDT(timeout=10*1000)
-
     if not flags:
         blink_led(0x004400)
 
@@ -156,7 +157,7 @@ def show_boot_flags():
 
 def quick_test_hw(hw):
     _logger.info("Starting quick self test...")
-    wdt = machine.WDT(timeout=10*1000)
+    pycom_util.reset_rgbled()
 
     _logger.info("Starting hardware quick check")
     chrono = machine.Timer.Chrono()
@@ -208,9 +209,12 @@ def quick_test_hw(hw):
     display_errors_led()
     wdt.feed()
 
+    pycom.rgbled(0x0)
+    timeutil.user_interrupt_countdown(wdt=wdt)
+
 def test_lte_ntp(hw, max_drift_secs=4):
     _logger.info("Starting LTE test...")
-    wdt = machine.WDT(timeout=10*1000)
+    pycom_util.reset_rgbled()
 
     global failures
     _logger.info("Testing LTE connectivity...")
@@ -302,3 +306,6 @@ def test_lte_ntp(hw, max_drift_secs=4):
     show_boot_flags()
     _logger.info("Failures after LTE test: 0x%04x", failures)
     display_errors_led()
+
+    pycom.rgbled(0x0)
+    timeutil.user_interrupt_countdown(wdt=wdt)

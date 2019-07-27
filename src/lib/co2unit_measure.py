@@ -7,12 +7,14 @@ import co2unit_id
 import configutil
 import explorir
 import fileutil
+import timeutil
 
 _logger = logging.getLogger("co2unit_measure")
 #_logger.setLevel(logging.DEBUG)
 
+wdt = timeutil.DummyWdt()
+
 def read_sensors(hw, flash_count=0):
-    wdt = machine.WDT(timeout=10*1000)
 
     rtime = time.gmtime()
     chrono = machine.Timer.Chrono()
@@ -149,6 +151,10 @@ def store_reading(ou_id, reading_data_dir, reading):
 
 def measure_sequence(hw, flash_count=0):
     _logger.info("Starting measurement sequence...")
+
+    hw.sync_to_most_reliable_rtc(reset_ok=True)
+    hw.mount_sd_card()
+
     reading = read_sensors(hw, flash_count=flash_count)
     _logger.info("Reading: %s", reading)
 

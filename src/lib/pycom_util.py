@@ -5,6 +5,12 @@ Gloss over some tricky spots in Pycom's API and firmware
 import pycom
 import machine
 
+def reset_rgbled():
+    # When heartbeat is disabled at boot, calls to pycom.rgbled won't work.
+    # Need to turn it on and off again to re-enable.
+    pycom.heartbeat(True)
+    pycom.heartbeat(False)
+
 def nvs_get(key, default=None):
     """ Reads non-volatile state and returns default if not defined
 

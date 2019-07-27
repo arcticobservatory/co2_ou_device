@@ -5,10 +5,12 @@ import time
 import logging
 _logger = logging.getLogger("co2unit_main")
 
-import configutil
 import pycom_util
+import timeutil
 
-# Normal operation
+wdt = timeutil.DummyWdt()
+
+# Run states
 STATE_UNKNOWN           = const(0)
 STATE_CRASH_RECOVERY    = const(1)
 STATE_QUICK_HW_TEST     = const(2)
@@ -19,19 +21,25 @@ STATE_MEASURE           = const(6)
 STATE_COMMUNICATE       = const(7)
 STATE_RECORD_FLASH      = const(8)
 
-SCHED_MINUTES   = const(0)
-SCHED_DAILY     = const(1)
+# Nonvolatile memory accessors
+next_state_on_boot = pycom_util.mk_on_boot_fn("co2_wake_next")
+nv_flash_count = pycom_util.mk_on_boot_fn("co2_flash_count", default=0)
+
+# Scheduling
+
+SCHEDULE_PATH = "conf/schedule.json"
+
+SCHEDULE_TYPES = {
+        "minutes": timeutil.next_even_minutes,
+        "daily": timeutil.next_time_of_day,
+        }
 
 SCHEDULE_DEFAULT = {
         "tasks": [
-            [SCHED_MINUTES, 30, 0, STATE_MEASURE],
-            [SCHED_DAILY, 3, 10, STATE_COMMUNICATE],
+            [STATE_MEASURE, 'minutes', 30, 0],
+            [STATE_COMMUNICATE, 'daily', 3, 10],
             ]
         }
-
-next_state_on_boot = pycom_util.mk_on_boot_fn("co2_wake_next")
-
-nv_flash_count = pycom_util.mk_on_boot_fn("co2_flash_count", default=0)
 
 def determine_state_after_reset():
     # Specific reset causes:
@@ -69,19 +77,6 @@ def determine_state_after_reset():
     _logger.warning("Unknown wake circumstances")
     return STATE_UNKNOWN
 
-def user_interrupt_countdown(secs=5):
-    wdt = machine.WDT(timeout=10*1000)
-    _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
-    print("Continuing in", end="")
-    try:
-        for i in reversed(range(1, secs+1)):
-            print(" {}".format(i), end="")
-            for _ in range(0,100):
-                time.sleep_ms(10)
-                wdt.feed()
-    finally:
-        print()
-
 def record_flash(hw):
     _logger.info("Recording detected IR flash...")
     fc = nv_flash_count()
@@ -91,7 +86,6 @@ def record_flash(hw):
 
 def crash_recovery_sequence():
     _logger.info("Starting crash recovery sequence...")
-    wdt = machine.WDT(timeout=10*1000)
     try:
         _logger.info("Making sure LTE modem is off")
         import network
@@ -105,12 +99,6 @@ def crash_recovery_sequence():
     except Exception as e:
         _logger.exc(e, "Could not turn off LTE modem")
 
-def reset_rgbled():
-    # When heartbeat is disabled at boot, calls to pycom.rgbled won't work.
-    # Need to turn it on and off again to re-enable.
-    pycom.heartbeat(True)
-    pycom.heartbeat(False)
-
 def set_persistent_settings():
     _logger.info("Setting persistent settings...")
     pycom.wifi_on_boot(False)
@@ -119,34 +107,16 @@ def set_persistent_settings():
     pycom.wdt_on_boot(True)
     pycom.wdt_on_boot_timeout(10*1000)
 
-SCHEDULE_PATH = "conf/schedule.json"
-
-def schedule_wake(hw):
-    import timeutil
-
-    try:
-        schedule_path = "/".join([hw.SDCARD_MOUNT_POINT, SCHEDULE_PATH])
-        schedule = configutil.read_config_json(schedule_path, SCHEDULE_DEFAULT)
-    except Exception as e:
-        _logger.exc(e, "Could not read schdule config %s. Falling back to defaults", SCHEDULE_PATH)
-        schedule = SCHEDULE_DEFAULT
-    _logger.info("Schedule: %s", schedule)
-
-    tasks = schedule.tasks
-
+def schedule_countdowns(tasks):
     _logger.info("Now %s", time.gmtime())
 
     countdowns = []
     for item in tasks:
-        sched_type = item[0]
-        if sched_type == SCHED_MINUTES:
-            _, minutes, offset, action = item
-            item_time = timeutil.next_even_minutes(minutes, plus=offset)
-        elif sched_type == SCHED_DAILY:
-            _, hour, minutes, action = item
-            item_time = timeutil.next_time_of_day(hour, minutes)
+        action, sched_type, *args = item
+        if sched_type in SCHEDULE_TYPES:
+            item_time = SCHEDULE_TYPES[sched_type](*args)
         else:
-            raise Exception("Unknown scedule type {}".format(sched_type))
+            raise Exception("Unknown schedule type {} in {}".format(sched_type, item))
 
         seconds_left = timeutil.seconds_until_time(item_time)
         countdowns.append([seconds_left, item_time, action])
@@ -156,6 +126,24 @@ def schedule_wake(hw):
     for c in countdowns:
         _logger.info("At  {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
 
+    return countdowns
+
+def schedule_wake(hw):
+    import configutil
+
+    hw.sync_to_most_reliable_rtc(reset_ok=True)
+    hw.mount_sd_card()
+
+    try:
+        schedule_path = "/".join([hw.SDCARD_MOUNT_POINT, SCHEDULE_PATH])
+        schedule = configutil.read_config_json(schedule_path, SCHEDULE_DEFAULT)
+    except Exception as e:
+        _logger.exc(e, "Could not read schdule config %s. Falling back to defaults", SCHEDULE_PATH)
+        schedule = SCHEDULE_DEFAULT
+
+    _logger.info("Schedule: %s", schedule)
+
+    countdowns = schedule_countdowns(schedule.tasks)
     sleep_sec, _, action = countdowns[0]
     return (sleep_sec * 1000, action)
 
@@ -181,66 +169,45 @@ def run(hw, run_state):
     # Turn on peripherals
     hw.power_peripherals(True)
 
-    # Self-test states
-    # --------------------------------------------------
-
     if run_state == STATE_CRASH_RECOVERY:
         crash_recovery_sequence()
         return (0, STATE_SCHEDULE)
 
-    if run_state in [STATE_QUICK_HW_TEST, STATE_LTE_TEST]:
-        # Reset heartbeat to initialize RGB LED, for test feedback
-        reset_rgbled()
-
+    if run_state == STATE_QUICK_HW_TEST:
         import co2unit_self_test
+        co2unit_self_test.wdt = wdt
+        co2unit_self_test.quick_test_hw(hw)
+        return (0, STATE_LTE_TEST)
 
-        if run_state == STATE_QUICK_HW_TEST:
-            co2unit_self_test.quick_test_hw(hw)
-            retval = (0, STATE_LTE_TEST)
-
-        elif run_state == STATE_LTE_TEST:
-            co2unit_self_test.test_lte_ntp(hw)
-            retval = (0, STATE_UPDATE)
-
-        pycom.rgbled(0x0)
-        user_interrupt_countdown()
-        return retval
-
-    # States that require RTC
-    # --------------------------------------------------
-
-    try:
-        hw.sync_to_most_reliable_rtc()
-    except Exception as e:
-        _logger.warning(e)
-
-    # States that require SD card
-    # --------------------------------------------------
-
-    hw.mount_sd_card()
+    if run_state == STATE_LTE_TEST:
+        import co2unit_self_test
+        co2unit_self_test.wdt = wdt
+        co2unit_self_test.test_lte_ntp(hw)
+        return (0, STATE_UPDATE)
 
     if run_state == STATE_SCHEDULE:
         _logger.info("Scheduling only....")
         return schedule_wake(hw)
 
     if run_state == STATE_UPDATE:
-        # Set persistent settings
         set_persistent_settings()
 
-        # Check for updates
         import co2unit_update
-        co2unit_update.update_sequence(hw.SDCARD_MOUNT_POINT)
+        co2unit_update.update_sequence(hw)
 
     if run_state == STATE_MEASURE:
         flash_count = nv_flash_count()
+
         import co2unit_measure
+        co2unit_measure.wdt = wdt
         co2unit_measure.measure_sequence(hw, flash_count=flash_count)
+
         _logger.info("Resetting flash count after recording it")
         nv_flash_count(0)
 
     if run_state == STATE_COMMUNICATE:
         import co2unit_comm
-        lte = co2unit_comm.comm_sequence(hw)
+        co2unit_comm.wdt = wdt
+        co2unit_comm.comm_sequence(hw)
 
-    # Go to sleep until next wake-up
     return schedule_wake(hw)
