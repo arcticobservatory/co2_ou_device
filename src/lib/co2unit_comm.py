@@ -116,6 +116,22 @@ def lte_deinit(lte, wdt):
             lte.deinit()
             wdt.feed()
 
+wdt = machine.WDT(timeout=1000*10)
+
+def request(method, host, path, data=None, json=None, headers={}, accept_statuses=[200]):
+    url = host + path
+    desc = " ".join([method,url])
+    with TimedStep(desc):
+        wdt.feed()
+        resp = urequests.request(method, url, data, json, headers)
+        wdt.feed()
+        if resp.status_code not in accept_statuses:
+            raise Exception("{} {}".format(desc, resp.status_code))
+        if _logger.isEnabledFor(logging.INFO):
+            _logger.info("%s %s %s", desc, resp.status_code, repr(resp.content)[:100])
+        wdt.feed()
+        return resp
+
 class PushSequentialState(object):
     def __init__(self, dirname, fname=None, progress=None, totalsize=None):
         self.fname = fname
@@ -240,10 +256,8 @@ def push_sequential(ou_id, cc, dirname, ss, wdt):
         _logger.info("%s: %s", dirname, ss[key])
 
 def transmit_data(ou_id, cc, cs, wdt):
-    url = "{}/ou/{}/alive".format(cc.sync_dest, ou_id.hw_id)
-    with TimedStep("Sending alive ping: %s" % url):
-        resp = urequests.post(url)
-        _logger.info("Response (%s): %s", resp.status_code, resp.text)
+    path = "/ou/{id}/alive".format(id=ou_id.hw_id)
+    request("POST", cc.sync_dest, path)
 
     for dirname, dirtype in cc.sync_dirs:
         if not dirname in cs.sync_states:
