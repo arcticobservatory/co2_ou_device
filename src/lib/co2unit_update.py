@@ -67,14 +67,20 @@ def patch_configs(patches_path):
     for pname in contents:
         ppath = "/".join([patches_path, pname])
         target = "conf/" + pname
-        fileutil.mkdirs("conf", wdt=wdt)
-        with open(target) as f:
-            targ_dict = json.load(f)
-            wdt.feed()
+
+        if fileutil.isfile(target):
+            with open(target) as f:
+                targ_dict = json.load(f)
+                wdt.feed()
+        else:
+            targ_dict = {}
+
         with open(ppath) as f:
             patch_dict = json.load(f)
             wdt.feed()
         targ_dict.update(patch_dict)
+
+        fileutil.mkdirs("conf", wdt=wdt)
         with open(target, "w") as f:
             f.write(json.dumps(targ_dict))
             wdt.feed()

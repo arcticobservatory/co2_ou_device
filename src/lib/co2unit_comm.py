@@ -122,6 +122,8 @@ def lte_deinit(lte):
 def request(method, host, path, data=None, json=None, headers={}, accept_statuses=[200]):
     url = host + path
     desc = " ".join([method,url])
+    if data:
+        desc += " ({} bytes payload)".format(len(data))
     with TimedStep(desc):
         resp = urequests.request(method, url, data, json, headers)
         wdt.feed()

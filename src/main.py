@@ -71,6 +71,7 @@ try:
     # import os
     # hw.mount_sd_card()
     # os.remove("/sd/var/updates-state.json")
+    # os.remove("/sd/conf/ou-id.json")
     # --------------------------------------------------
 
     sleep_ms, next_state = co2unit_main.run(hw, next_state)
