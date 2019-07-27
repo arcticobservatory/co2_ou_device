@@ -1,5 +1,6 @@
 import json
 import logging
+import fileutil
 
 _logger = logging.getLogger("configutil")
 #_logger.setLevel(logging.DEBUG)
@@ -30,6 +31,8 @@ def read_config_json(filename, defaults={}):
     _logger.info("%s: %s", filename, config)
     return config
 
-def save_config_json(filename, data):
-    with open(filename, "wt") as f:
-        f.write(json.dumps(data.__dict__))
+def save_config_json(fpath, namespace):
+    fileutil.mkdirs(fileutil.dirname(fpath))
+    with open(fpath, "wt") as f:
+        f.write(json.dumps(namespace.__dict__))
+    _logger.info("%s saved: %s", fpath, namespace.__dict__)

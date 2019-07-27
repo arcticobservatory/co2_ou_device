@@ -142,7 +142,7 @@ class PushSequentialState(object):
 
         self.dirname = dirname
         # Make sure directory exists before trying to read it
-        fileutil.mkdirs(dirname)
+        fileutil.mkdirs(dirname, wdt=wdt)
         self.dirlist = os.listdir(dirname)
         self.dirlist.sort()
         if not self.dirlist:
@@ -280,7 +280,7 @@ def pull_last_dir(ou_id, cc, dpath, ss):
 
         path = "/ou/{id}/{rpath}/{fpath}".format(id=ou_id.hw_id, rpath=rpath, fpath=fpath)
         resp = request("GET", cc.sync_dest, path)
-        fileutil.mkdirs(fileutil.dirname(tmp_path))
+        fileutil.mkdirs(fileutil.dirname(tmp_path), wdt=wdt)
         with open(tmp_path, "w") as f:
             # TODO: make sure to write all
             f.write(resp.content)
@@ -288,7 +288,7 @@ def pull_last_dir(ou_id, cc, dpath, ss):
 
     # When finished, move whole directory in place
     _logger.info("Moving %s into place", rpath)
-    fileutil.mkdirs(dpath)
+    fileutil.mkdirs(dpath, wdt=wdt)
     os.rename(tmp_dir, rpath)
     wdt.feed()
 
@@ -372,7 +372,7 @@ def comm_sequence(hw):
 
     finally:
         with TimedStep("Save comm state", suppress_exception=True):
-            fileutil.mkdirs(STATE_DIR)
+            fileutil.mkdirs(STATE_DIR, wdt=wdt)
             configutil.save_config_json(COMM_STATE_PATH, cs)
             _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
 

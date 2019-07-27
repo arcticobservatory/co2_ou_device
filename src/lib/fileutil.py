@@ -25,7 +25,8 @@ def dirname(path):
     if pos == -1: pos = 0
     return path[:pos]
 
-def mkdirs(path):
+def mkdirs(path, wdt=None):
+    if not path: return
     pathparts = path.split("/")
 
     created = []
@@ -34,6 +35,7 @@ def mkdirs(path):
         curpath = "/".join(pathparts[0:i])
         try:
             os.mkdir(curpath)
+            if wdt: wdt.feed()
             created += [curpath]
             _logger.info("Created %s", curpath)
         except OSError as e:
@@ -43,50 +45,65 @@ def mkdirs(path):
 
     return created
 
-def rm_recursive(path):
+def rm_recursive(path, wdt=None):
     try:
         # Try as normal file
         os.remove(path)
         _logger.info("Removed file %s", path)
+        return
     except OSError:
+        pass
+
+    try:
         # Try as directory
         contents = os.listdir(path)
         for c in contents:
-            rm_recursive("{}/{}".format(path,c))
+            if wdt: wdt.feed()
+            rm_recursive("{}/{}".format(path,c), wdt)
+            if wdt: wdt.feed()
         os.rmdir(path)
         _logger.info("Removed dir  %s", path)
+        return
+    except OSError as e:
+        if "No such file" in str(e):
+            _logger.warning("Does not exist %s", path)
 
-def copy_file(src_path, dest_path, block_size=512):
+def copy_file(src_path, dest_path, block_size=512, wdt=None):
     buf = bytearray(block_size)
     mv = memoryview(buf)
     with open(src_path, "rb") as src:
         with open(dest_path, "wb") as dest:
             while True:
                 bytes_read = src.readinto(buf)
+                if wdt: wdt.feed()
                 _logger.debug("Read  %4d bytes from %s", bytes_read, src_path)
                 if not bytes_read:
                     break
                 bytes_written = 0
                 while bytes_written != bytes_read:
                     bytes_written += dest.write(mv[bytes_written:bytes_read])
+                    if wdt: wdt.feed()
                     _logger.debug("Wrote %4d bytes to   %s", bytes_written, dest_path)
     _logger.info("Copied %s -> %s", src_path, dest_path)
 
-def copy_recursive(src_path, dest_path, block_size=512):
+def copy_recursive(src_path, dest_path, block_size=512, wdt=None):
+    if wdt: wdt.feed()
     try:
         contents = os.listdir(src_path)
     except:
         contents = None
 
     if contents==None:
-        copy_file(src_path, dest_path, block_size)
+        copy_file(src_path, dest_path, block_size, wdt=wdt)
+        if wdt: wdt.feed()
 
     else:
-        mkdirs(dest_path)
+        mkdirs(dest_path, wdt=wdt)
         for child in contents:
+            if wdt: wdt.feed()
             src_child = "%s/%s" % (src_path, child)
             dest_child = "%s/%s" % (dest_path, child)
-            copy_recursive(src_child, dest_child, block_size)
+            copy_recursive(src_child, dest_child, block_size, wdt=wdt)
 
 STAT_SIZE_INDEX = const(6)
 

@@ -50,15 +50,24 @@ try:
 
     # Area for temporary test overrides
     # --------------------------------------------------
-    # next_state = co2unit_main.STATE_MEASURE
-    # co2unit_main.run(hw, next_state)
-    exit_to_repl_after = True
+    # exit_to_repl_after = True
     # next_state = co2unit_main.STATE_QUICK_HW_TEST
-    next_state = co2unit_main.STATE_COMMUNICATE
+    # next_state = co2unit_main.STATE_COMMUNICATE
     # next_state = co2unit_main.STATE_SCHEDULE
     # next_state = co2unit_main.STATE_MEASURE
     # next_state = co2unit_main.STATE_RECORD_FLASH
+    # next_state = co2unit_main.STATE_UPDATE
     # raise Exception("Dummy Exception")
+
+    # Test update functionality
+    # ------------------
+    # hw.power_peripherals(True)
+    # hw.mount_sd_card()
+    # import co2unit_update
+    # co2unit_update.wdt = wdt
+    # co2unit_update.reset_update_for_test("/sd/updates/update-2019-07-26")
+    # import os
+    # os.remove("/sd/var/updates-state.json")
     # --------------------------------------------------
 
     sleep_ms, next_state = co2unit_main.run(hw, next_state)

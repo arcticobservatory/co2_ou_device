@@ -193,6 +193,7 @@ def run(hw, run_state):
         set_persistent_settings()
 
         import co2unit_update
+        co2unit_update.wdt = wdt
         co2unit_update.update_sequence(hw)
 
     if run_state == STATE_MEASURE:
