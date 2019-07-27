@@ -17,6 +17,12 @@ import timeutil
 _logger = logging.getLogger("co2unit_comm")
 #_logger.setLevel(logging.DEBUG)
 
+class DummyWdt(object):
+    def init(self, timeout): pass
+    def feed(self): pass
+
+wdt = DummyWdt()
+
 COMM_CONF_PATH = "conf/ou-comm-config.json"
 COMM_CONF_DEFAULTS = {
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
@@ -51,11 +57,13 @@ class TimedStep(object):
         self.suppress_exception = suppress_exception
 
     def __enter__(self):
+        wdt.feed()
         tschrono.reset()
         _logger.info("%s ...", self.desc)
 
     def __exit__(self, exc_type, exc_value, traceback):
         elapsed = tschrono.read_ms()
+        wdt.feed()
         if exc_type:
             _logger.warning("%s failed (%d ms). %s: %s", self.desc, elapsed, exc_type.__name__, exc_value)
             if self.suppress_exception:
@@ -63,7 +71,7 @@ class TimedStep(object):
         else:
             _logger.info("%s OK (%d ms)", self.desc, elapsed)
 
-def lte_connect(wdt):
+def lte_connect():
     total_chrono.start()
 
     # Set watchdog timer to reboot if LTE init hangs.
@@ -73,7 +81,6 @@ def lte_connect(wdt):
 
     with TimedStep("LTE init"):
         lte = network.LTE()
-        wdt.feed()
 
     with TimedStep("LTE attach"):
         lte.attach()
@@ -93,7 +100,7 @@ def lte_connect(wdt):
 
     return lte
 
-def lte_deinit(lte, wdt):
+def lte_deinit(lte):
     if not lte: return
 
     # LTE disconnect often takes a few seconds
@@ -104,32 +111,24 @@ def lte_deinit(lte, wdt):
         if lte.isconnected():
             with TimedStep("LTE disconnect"):
                 lte.disconnect()
-                wdt.feed()
 
         if lte.isattached():
             with TimedStep("LTE detach"):
                 lte.detach()
-                wdt.feed()
 
     finally:
         with TimedStep("LTE deinit"):
             lte.deinit()
-            wdt.feed()
-
-wdt = machine.WDT(timeout=1000*10)
 
 def request(method, host, path, data=None, json=None, headers={}, accept_statuses=[200]):
     url = host + path
     desc = " ".join([method,url])
     with TimedStep(desc):
-        wdt.feed()
         resp = urequests.request(method, url, data, json, headers)
-        wdt.feed()
         if resp.status_code not in accept_statuses:
             raise Exception("{} {}".format(desc, resp.status_code))
         if _logger.isEnabledFor(logging.INFO):
             _logger.info("%s %s %s", desc, resp.status_code, repr(resp.content)[:100])
-        wdt.feed()
         return resp
 
 class PushSequentialState(object):
@@ -192,14 +191,14 @@ class PushSequentialState(object):
         return self.dirindex == len(self.dirlist)
 
 
-def push_sequential(ou_id, cc, dirname, ss, wdt):
-    wdt.feed()
+def push_sequential(ou_id, cc, dirname, ss):
 
-    key = "ack_file"
-    if key in ss:
-        pushstate = PushSequentialState(dirname, *ss[key])
-    else:
-        pushstate = PushSequentialState(dirname)
+    with TimedStep("Determine current sync state"):
+        key = "ack_file"
+        if key in ss:
+            pushstate = PushSequentialState(dirname, *ss[key])
+        else:
+            pushstate = PushSequentialState(dirname)
 
     try:
         buf = bytearray(cc.send_chunk_size)
@@ -218,12 +217,10 @@ def push_sequential(ou_id, cc, dirname, ss, wdt):
                         readbytes = f.readinto(buf)
                     senddata = mv[:readbytes]
                     _logger.debug("%s read %d bytes", pushstate.fpath(), readbytes)
-                    wdt.feed()
 
                 if _logger.level <= logging.DEBUG:
                     s = uio.BytesIO(mv)#[:40])
                     _logger.debug("Read data: '%s' ...", s.getvalue())
-                    wdt.feed()
 
                 path = "/ou/{id}/push-sequential/{fpath}?offset={progress}".format(\
                         id=ou_id.hw_id, fpath=pushstate.fpath(), progress=pushstate.progress)
@@ -238,17 +235,15 @@ def push_sequential(ou_id, cc, dirname, ss, wdt):
                     if fname != pushstate.fname or progress != pushstate.progress:
                         _logger.info("New progress in server response: %s, %d", fname, progress)
                         pushstate.update_by_fname(fname, progress)
-                wdt.feed()
 
             pushstate.update_to_next_file()
-            wdt.feed()
 
         _logger.info("%s: all synced", dirname)
     finally:
         ss[key] = pushstate.to_list()
         _logger.info("%s: %s", dirname, ss[key])
 
-def transmit_data(ou_id, cc, cs, wdt):
+def transmit_data(ou_id, cc, cs):
     path = "/ou/{id}/alive".format(id=ou_id.hw_id)
     request("POST", cc.sync_dest, path)
 
@@ -258,7 +253,7 @@ def transmit_data(ou_id, cc, cs, wdt):
         ss = cs.sync_states[dirname]
 
         if dirtype == "push_sequential":
-            push_sequential(ou_id, cc, dirname, ss, wdt)
+            push_sequential(ou_id, cc, dirname, ss)
         else:
             _logger.warning("Unknown sync type for %s: %s", sdir, stype)
         _logger.info("ss: %s", ss)
@@ -270,7 +265,8 @@ def comm_sequence(hw):
     """
     _logger.info("Starting communication sequence...")
 
-    wdt = machine.WDT(timeout=10*1000)
+    global wdt
+    wdt = machine.WDT(timeout=1000*10)
 
     lte = None
 
@@ -296,15 +292,13 @@ def comm_sequence(hw):
         with TimedStep("Give LTE a moment to boot"):
             # LTE init seems to be successful more often if we give it time first
             time.sleep_ms(1000)
-            wdt.feed()
 
         with TimedStep("LTE init and connect"):
             try:
                 # Attempt to connect
-                lte = lte_connect(wdt)
+                lte = lte_connect()
                 # If connection successful, reset backoff
                 cs.connect_backoff = [0, 0]
-                wdt.feed()
             except:
                 # If connection fails, increase backoff
                 backoff = min(backoff + 1, cc.connect_backoff_max)
@@ -314,22 +308,18 @@ def comm_sequence(hw):
         with TimedStep("Set time from NTP", suppress_exception=True):
             ts = timeutil.fetch_ntp_time()
             hw.set_both_rtcs(ts)
-            wdt.feed()
 
         with TimedStep("Transmit data"):
-            transmit_data(ou_id, cc, cs, wdt)
-            wdt.feed()
+            transmit_data(ou_id, cc, cs)
 
     finally:
         with TimedStep("Save comm state", suppress_exception=True):
             fileutil.mkdirs(STATE_DIR)
             configutil.save_config_json(COMM_STATE_PATH, cs)
             _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
-            wdt.feed()
 
         with TimedStep("LTE disconnect and deinit"):
-            lte_deinit(lte, wdt)
-            wdt.feed()
+            lte_deinit(lte)
 
     return lte
 
