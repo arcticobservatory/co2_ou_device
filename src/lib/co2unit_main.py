@@ -6,6 +6,7 @@ import logging
 _logger = logging.getLogger("co2unit_main")
 
 import pycom_util
+import timeutil
 
 # Normal operation
 STATE_UNKNOWN           = const(0)
@@ -29,8 +30,9 @@ SCHEDULE_DEFAULT = {
         }
 
 next_state_on_boot = pycom_util.mk_on_boot_fn("co2_wake_next")
-
 nv_flash_count = pycom_util.mk_on_boot_fn("co2_flash_count", default=0)
+
+wdt = timeutil.DummyWdt()
 
 def determine_state_after_reset():
     # Specific reset causes:
@@ -69,7 +71,6 @@ def determine_state_after_reset():
     return STATE_UNKNOWN
 
 def user_interrupt_countdown(secs=5):
-    wdt = machine.WDT(timeout=10*1000)
     _logger.info("Pausing before continuing. If you want to interrupt, now is a good time.")
     print("Continuing in", end="")
     try:
@@ -90,7 +91,6 @@ def record_flash(hw):
 
 def crash_recovery_sequence():
     _logger.info("Starting crash recovery sequence...")
-    wdt = machine.WDT(timeout=10*1000)
     try:
         _logger.info("Making sure LTE modem is off")
         import network
@@ -212,12 +212,14 @@ def run(hw, run_state):
     if run_state == STATE_MEASURE:
         flash_count = nv_flash_count()
         import co2unit_measure
+        co2unit_measure.wdt = wdt
         co2unit_measure.measure_sequence(hw, flash_count=flash_count)
         _logger.info("Resetting flash count after recording it")
         nv_flash_count(0)
 
     if run_state == STATE_COMMUNICATE:
         import co2unit_comm
+        co2unit_comm.wdt = wdt
         co2unit_comm.comm_sequence(hw)
 
     # Go to sleep until next wake-up

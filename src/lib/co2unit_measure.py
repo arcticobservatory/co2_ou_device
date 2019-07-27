@@ -7,12 +7,14 @@ import co2unit_id
 import configutil
 import explorir
 import fileutil
+import timeutil
 
 _logger = logging.getLogger("co2unit_measure")
 #_logger.setLevel(logging.DEBUG)
 
+wdt = timeutil.DummyWdt()
+
 def read_sensors(hw, flash_count=0):
-    wdt = machine.WDT(timeout=10*1000)
 
     rtime = time.gmtime()
     chrono = machine.Timer.Chrono()

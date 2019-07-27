@@ -260,9 +260,6 @@ def comm_sequence(hw):
     """
     _logger.info("Starting communication sequence...")
 
-    global wdt
-    wdt = machine.WDT(timeout=1000*10)
-
     lte = None
 
     os.chdir(hw.SDCARD_MOUNT_POINT)

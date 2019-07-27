@@ -45,6 +45,7 @@ try:
 
     # Defer to co2unit_main
     import co2unit_main
+    co2unit_main.wdt = wdt
     next_state = co2unit_main.determine_state_after_reset()
 
     # Area for temporary test overrides
