@@ -39,6 +39,10 @@ def check_for_updates(updates_dir):
 
     upstate = configutil.read_config_json(UPDATE_STATE_PATH, UPDATE_STATE_DEFAULTS)
 
+    if not fileutil.isdir(updates_dir):
+        _logger.info("Updates dir does not exist")
+        return (upstate, None)
+
     contents = os.listdir(updates_dir)
     update_name = seqfile.last_file_in_sequence(contents, UPDATES_MATCH)
 
