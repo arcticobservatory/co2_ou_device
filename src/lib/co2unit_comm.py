@@ -3,10 +3,8 @@ import machine
 import network
 import os
 import time
-import ubinascii
 import uio
 import urequests
-import usocket
 
 import co2unit_id
 import co2unit_errors
@@ -17,11 +15,7 @@ import timeutil
 _logger = logging.getLogger("co2unit_comm")
 #_logger.setLevel(logging.DEBUG)
 
-class DummyWdt(object):
-    def init(self, timeout): pass
-    def feed(self): pass
-
-wdt = DummyWdt()
+wdt = timeutil.DummyWdt()
 
 COMM_CONF_PATH = "conf/ou-comm-config.json"
 COMM_CONF_DEFAULTS = {

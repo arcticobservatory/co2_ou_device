@@ -240,7 +240,7 @@ def run(hw, run_state):
 
     if run_state == STATE_COMMUNICATE:
         import co2unit_comm
-        lte = co2unit_comm.comm_sequence(hw)
+        co2unit_comm.comm_sequence(hw)
 
     # Go to sleep until next wake-up
     return schedule_wake(hw)

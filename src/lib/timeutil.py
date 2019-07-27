@@ -1,12 +1,12 @@
 import time
 
-from machine import RTC
-
-import ntptime
-
-SECONDS_1970_TO_2000 = time.mktime((2000,1,1,0,0,0,0,0))
+class DummyWdt(object):
+    def init(self, timeout): pass
+    def feed(self): pass
 
 def fetch_ntp_time():
+    import ntptime
+    SECONDS_1970_TO_2000 = time.mktime((2000,1,1,0,0,0,0,0))
     # NTP returns seconds since 1900
     # The ntptime lib adjusts that to seconds since 2000
     seconds_2000_to_now = ntptime.time()
