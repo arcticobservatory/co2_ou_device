@@ -154,6 +154,7 @@ def measure_sequence(hw, flash_count=0):
 
     hw.sync_to_most_reliable_rtc(reset_ok=True)
     hw.mount_sd_card()
+    os.chdir(hw.SDCARD_MOUNT_POINT)
 
     reading = read_sensors(hw, flash_count=flash_count)
     _logger.info("Reading: %s", reading)

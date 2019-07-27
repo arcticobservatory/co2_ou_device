@@ -56,6 +56,26 @@ def check_for_updates(updates_dir):
         _logger.info("Found %s", update_path)
         return (upstate, update_path)
 
+def patch_configs(patches_path):
+    _logger.info("Patching config files...")
+    contents = os.listdir(patches_path)
+
+    for pname in contents:
+        ppath = "/".join([patches_path, pname])
+        target = "conf/" + pname
+        fileutil.mkdirs("conf", wdt=wdt)
+        with open(target) as f:
+            targ_dict = json.load(f)
+            wdt.feed()
+        with open(ppath) as f:
+            patch_dict = json.load(f)
+            wdt.feed()
+        targ_dict.update(patch_dict)
+        with open(target, "w") as f:
+            f.write(json.dumps(targ_dict))
+            wdt.feed()
+        _logger.info("New %s: %s", target, targ_dict)
+
 def install_update(upstate, subpath):
 
     try:
@@ -64,8 +84,11 @@ def install_update(upstate, subpath):
         contents = os.listdir(subpath)
 
         if "flash" in contents:
-            _logger.info("Copying new source into flash filesystem")
+            _logger.info("Copying new source into flash filesystem...")
             fileutil.copy_recursive(subpath+"/flash", "/flash", wdt=wdt)
+
+        if "conf_patch" in contents:
+            patch_configs(subpath + "/conf_patch")
 
         upstate.installed = subpath
         _logger.info("Finished installing update from %s", subpath)
@@ -100,7 +123,14 @@ def reset_update_for_test(subpath):
         import os
         os.remove("/sd/var/updates-state.json")
     """
+    import machine
     _logger.info("Clearing update subdirectory %s", subpath)
     fileutil.rm_recursive(subpath, wdt=wdt)
     _logger.info("Copying current code to %s", subpath)
     fileutil.copy_recursive("/flash", subpath+"/flash", wdt=wdt)
+    rand_site_code = "rand_site_%04x" % (machine.rng() % (16**4))
+    _logger.info("Adding a randomized conf_patch: %s", rand_site_code)
+    fileutil.mkdirs(subpath + "/conf_patch")
+    with open(subpath + "/conf_patch/ou-id.json", "w") as f:
+        patch = { "site_code": rand_site_code }
+        f.write(json.dumps(patch))

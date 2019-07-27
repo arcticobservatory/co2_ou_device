@@ -212,7 +212,6 @@ def run(hw, run_state):
         lte, got_updates = co2unit_comm.comm_sequence(hw)
         if got_updates:
             _logger.info("Updates downloaded")
-            # TODO: overhaul updates and enable
-            pass #return (0, STATE_UPDATE)
+            return (0, STATE_UPDATE)
 
     return schedule_wake(hw)

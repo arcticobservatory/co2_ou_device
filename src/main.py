@@ -63,10 +63,13 @@ try:
     # ------------------
     # hw.power_peripherals(True)
     # hw.mount_sd_card()
+    # import fileutil
+    # fileutil.rm_recursive("/sd/updates")
     # import co2unit_update
     # co2unit_update.wdt = wdt
-    # co2unit_update.reset_update_for_test("/sd/updates/update-2019-07-26")
+    # co2unit_update.reset_update_for_test("/sd/updates/update-2019-07-25")
     # import os
+    # hw.mount_sd_card()
     # os.remove("/sd/var/updates-state.json")
     # --------------------------------------------------
 
