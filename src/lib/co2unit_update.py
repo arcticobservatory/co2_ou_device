@@ -87,9 +87,12 @@ def install_update(state, update_subdir):
             f.write(serialized)
         _logger.info(" State saved  %s: %s", UPDATE_STATE_FILENAME, serialized)
 
-def update_sequence(sd_root):
+def update_sequence(hw):
     _logger.info("Starting check for updates...")
-    updates_dir = "/".join([sd_root, UPDATES_DIR])
+    hw.sync_to_most_reliable_rtc(reset_ok=True)
+    hw.mount_sd_card()
+
+    updates_dir = "/".join([hw.SDCARD_MOUNT_POINT, UPDATES_DIR])
     os.chdir(updates_dir)
     state, new_update = check_for_updates()
     if new_update:

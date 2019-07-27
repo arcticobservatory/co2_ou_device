@@ -151,6 +151,10 @@ def store_reading(ou_id, reading_data_dir, reading):
 
 def measure_sequence(hw, flash_count=0):
     _logger.info("Starting measurement sequence...")
+
+    hw.sync_to_most_reliable_rtc(reset_ok=True)
+    hw.mount_sd_card()
+
     reading = read_sensors(hw, flash_count=flash_count)
     _logger.info("Reading: %s", reading)
 

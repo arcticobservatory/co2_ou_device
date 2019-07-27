@@ -260,6 +260,9 @@ def comm_sequence(hw):
     """
     _logger.info("Starting communication sequence...")
 
+    hw.sync_to_most_reliable_rtc(reset_ok=True)
+    hw.mount_sd_card()
+
     lte = None
 
     os.chdir(hw.SDCARD_MOUNT_POINT)
