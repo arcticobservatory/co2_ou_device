@@ -124,10 +124,14 @@ def request(method, host, path, data=None, json=None, headers={}, accept_statuse
     desc = " ".join([method,url])
     with TimedStep(desc):
         resp = urequests.request(method, url, data, json, headers)
+        wdt.feed()
+        resp.content
+        wdt.feed()
         if resp.status_code not in accept_statuses:
-            raise Exception("{} {}".format(desc, resp.status_code))
+            raise Exception("{} {} {}".format(desc, resp.status_code, repr(resp.content)[:100]))
         if _logger.isEnabledFor(logging.INFO):
             _logger.info("%s %s %s", desc, resp.status_code, repr(resp.content)[:100])
+        wdt.feed()
         return resp
 
 class PushSequentialState(object):
@@ -240,53 +244,76 @@ def push_sequential(ou_id, cc, dirname, ss):
         ss[key] = pushstate.to_list()
         _logger.info("%s: %s", dirname, ss[key])
 
-def fetch_dir_list(ou_id, cc, dirname, recursive=False):
-    chrono = machine.Timer.Chrono()
-    chrono.start()
+def fetch_dir_list(ou_id, cc, dpath, recursive=False):
+    path = "/ou/{id}/{dpath}?recursive={recursive}".format(\
+            id=ou_id.hw_id, dpath=dpath, recursive=recursive)
+    resp = request("GET", cc.sync_dest, path)
+    dirlist = resp.json()
+    return dirlist
 
-    url = "{}/ou/{}/{}?recursive={}".format(cc.sync_dest, ou_id.hw_id, dirname, recursive)
-    with TimedStep(chrono, "fetching dir list: %s" % (url)):
-        resp = urequests.get(url)
-        _logger.info("response (%s): %s", resp.status_code, repr(resp.content)[0:100])
-
-        if resp.status_code != 200:
-            raise exception("error: %s --- %s %s" % (url, resp.status_code, repr(resp.content)[0:300]))
-
-        dirlist = resp.json()
-        return dirlist
-
-def pull_last_dir(ou_id, cc, dirname, ss):
-    chrono = machine.Timer.Chrono()
-    chrono.start()
-
-    wdt.feed()
-
-    # Get dir list
-    dirlist = fetch_dir_list(ou_id, cc, dirname)
+def pull_last_dir(ou_id, cc, dpath, ss):
+    # Find most recent update
+    _logger.info("Fetching available directories in %s ...", dpath)
+    dirlist = fetch_dir_list(ou_id, cc, dpath)
     most_recent = seqfile.last_file_in_sequence(dirlist)
-    _logger.info("Latest in %s: %s", dirname, dirlist)
+    _logger.info("Latest in %s: %s", dpath, most_recent)
+
+    if not most_recent:
+        _logger.info("Nothing to fetch")
+        return False
+
+    # Get list of files in update
+    rpath = "{dpath}/{most_recent}".format(dpath=dpath, most_recent=most_recent)
+    if fileutil.isdir(rpath):
+        _logger.info("Already have %s, skipping", rpath)
+        return False
+
+    _logger.info("Getting list of files in %s ...", rpath)
+    tmp_dir = "tmp/" + rpath
+    fetch_paths = fetch_dir_list(ou_id, cc, rpath, recursive=True)
+
+    # Fetch each file
+    _logger.info("Fetching files to %s", tmp_dir)
+    for fpath in fetch_paths:
+        tmp_path = "/".join([tmp_dir,fpath])
+        if fileutil.isfile(tmp_path): break
+
+        path = "/ou/{id}/{rpath}/{fpath}".format(id=ou_id.hw_id, rpath=rpath, fpath=fpath)
+        resp = request("GET", cc.sync_dest, path)
+        fileutil.mkdirs(fileutil.dirname(tmp_path))
+        with open(tmp_path, "w") as f:
+            # TODO: make sure to write all
+            f.write(resp.content)
+            wdt.feed()
+
+    # When finished, move whole directory in place
+    _logger.info("Moving %s into place", rpath)
+    fileutil.mkdirs(dpath)
+    os.rename(tmp_dir, rpath)
     wdt.feed()
 
-    # Pull into temp zone
-    remote_dir = "/".join([dirname, most_recent])
-    dirlist = fetch_dir_list(ou_id, cc, dirname, recursive=True)
-    wdt.feed()
-
-    # If finished, move into updates
+    return True
 
 def transmit_data(ou_id, cc, cs):
     path = "/ou/{id}/alive".format(id=ou_id.hw_id)
     request("POST", cc.sync_dest, path)
+
+    got_updates = False
 
     for dirname, dirtype in cc.sync_dirs:
         if not dirname in cs.sync_states:
             cs.sync_states[dirname] = {}
         ss = cs.sync_states[dirname]
 
-        if dirtype == "push_sequential": push_sequential(ou_id, cc, dirname, ss)
-        elif dirtype == "pull_last_dir": pull_last_dir(ou_id, cc, dirname, ss)
+        if dirtype == "push_sequential":
+            push_sequential(ou_id, cc, dirname, ss)
+        elif dirtype == "pull_last_dir":
+            updated = pull_last_dir(ou_id, cc, dirname, ss)
+            got_updates = got_updates or updated
         else: _logger.warning("Unknown sync type for %s: %s", sdir, stype)
         _logger.info("ss[%s]: %s", dirname, ss)
+
+    return got_updates
 
 def comm_sequence(hw):
     """ Transmits data
@@ -299,6 +326,7 @@ def comm_sequence(hw):
     hw.mount_sd_card()
 
     lte = None
+    got_updates = False
 
     os.chdir(hw.SDCARD_MOUNT_POINT)
 
@@ -340,7 +368,7 @@ def comm_sequence(hw):
             hw.set_both_rtcs(ts)
 
         with TimedStep("Transmit data"):
-            transmit_data(ou_id, cc, cs)
+            got_updates = transmit_data(ou_id, cc, cs)
 
     finally:
         with TimedStep("Save comm state", suppress_exception=True):
@@ -351,7 +379,7 @@ def comm_sequence(hw):
         with TimedStep("LTE disconnect and deinit"):
             lte_deinit(lte)
 
-    return lte
+    return lte, got_updates
 
 def reset_state():
     os.remove(COMM_STATE_PATH)

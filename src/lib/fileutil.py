@@ -6,6 +6,25 @@ import seqfile
 _logger = logging.getLogger("fileutil")
 #_logger.setLevel(logging.DEBUG)
 
+def isfile(fpath):
+    try:
+        with open(fpath, "r"):
+            return True
+    except:
+        return False
+
+def isdir(dpath):
+    try:
+        os.listdir(dpath)
+        return True
+    except:
+        return False
+
+def dirname(path):
+    pos = path.rfind("/")
+    if pos == -1: pos = 0
+    return path[:pos]
+
 def mkdirs(path):
     pathparts = path.split("/")
 
