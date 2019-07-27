@@ -225,28 +225,21 @@ def push_sequential(ou_id, cc, dirname, ss, wdt):
                     _logger.debug("Read data: '%s' ...", s.getvalue())
                     wdt.feed()
 
-                url = "{}/ou/{}/push-sequential/{}?offset={}".format(\
-                        cc.sync_dest, ou_id.hw_id, pushstate.fpath(), pushstate.progress)
+                path = "/ou/{id}/push-sequential/{fpath}?offset={progress}".format(\
+                        id=ou_id.hw_id, fpath=pushstate.fpath(), progress=pushstate.progress)
+                resp = request("PUT", cc.sync_dest, path, data=senddata, accept_statuses=[200,416])
 
-                with TimedStep("Sending data: %s (%d bytes)" % (url, readbytes)):
-                    resp = urequests.put(url, data=senddata)
-                    _logger.info("Response (%s): %s", resp.status_code, repr(resp.content)[0:100])
-                    wdt.feed()
+                if resp.status_code == 200:
+                    pushstate.add_progress(readbytes)
 
-                    if resp.status_code == 200:
-                        pushstate.add_progress(readbytes)
-
-                    parsed = resp.json()
-                    if "ack_file" in parsed:
-                        fname, progress, totalize = parsed["ack_file"]
+                parsed = resp.json()
+                if "ack_file" in parsed:
+                    fname, progress, totalize = parsed["ack_file"]
+                    if fname != pushstate.fname or progress != pushstate.progress:
                         _logger.info("New progress in server response: %s, %d", fname, progress)
                         pushstate.update_by_fname(fname, progress)
-                    wdt.feed()
+                wdt.feed()
 
-                    if resp.status_code != 200:
-                        raise Exception("Error sending data: %s --- %s %s" % (url, resp.status_code, repr(resp.content)[0:300]))
-
-            # TODO: quit after a timeout
             pushstate.update_to_next_file()
             wdt.feed()
 
