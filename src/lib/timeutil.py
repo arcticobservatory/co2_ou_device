@@ -35,6 +35,35 @@ def next_time_of_day(hour, minute):
 
     return next_tt
 
+SCHEDULE_TYPES = {
+        "minutes": next_even_minutes,
+        "daily": next_time_of_day,
+        }
+
+def schedule_countdowns(tasks):
+    import logging
+    _logger = logging.getLogger("co2unit_main")
+
+    _logger.info("Now %s", time.gmtime())
+
+    countdowns = []
+    for item in tasks:
+        action, sched_type, *args = item
+        if sched_type in SCHEDULE_TYPES:
+            item_time = SCHEDULE_TYPES[sched_type](*args)
+        else:
+            raise Exception("Unknown schedule type {} in {}".format(sched_type, item))
+
+        seconds_left = seconds_until_time(item_time)
+        countdowns.append([seconds_left, item_time, action])
+
+    countdowns.sort(key=lambda x:x[0])
+
+    for c in countdowns:
+        _logger.info("At  {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
+
+    return countdowns
+
 def seconds_until_time(next_tt):
     now = time.time()
     secs = time.mktime(next_tt) - now

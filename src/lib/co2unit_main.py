@@ -5,7 +5,6 @@ import time
 import logging
 _logger = logging.getLogger("co2unit_main")
 
-import configutil
 import pycom_util
 
 # Normal operation
@@ -24,8 +23,8 @@ SCHED_DAILY     = const(1)
 
 SCHEDULE_DEFAULT = {
         "tasks": [
-            [SCHED_MINUTES, 30, 0, STATE_MEASURE],
-            [SCHED_DAILY, 3, 10, STATE_COMMUNICATE],
+            [STATE_MEASURE, 'minutes', 30, 0],
+            [STATE_COMMUNICATE, 'daily', 3, 10],
             ]
         }
 
@@ -123,6 +122,7 @@ SCHEDULE_PATH = "conf/schedule.json"
 
 def schedule_wake(hw):
     import timeutil
+    import configutil
 
     try:
         schedule_path = "/".join([hw.SDCARD_MOUNT_POINT, SCHEDULE_PATH])
@@ -130,32 +130,10 @@ def schedule_wake(hw):
     except Exception as e:
         _logger.exc(e, "Could not read schdule config %s. Falling back to defaults", SCHEDULE_PATH)
         schedule = SCHEDULE_DEFAULT
+
     _logger.info("Schedule: %s", schedule)
 
-    tasks = schedule.tasks
-
-    _logger.info("Now %s", time.gmtime())
-
-    countdowns = []
-    for item in tasks:
-        sched_type = item[0]
-        if sched_type == SCHED_MINUTES:
-            _, minutes, offset, action = item
-            item_time = timeutil.next_even_minutes(minutes, plus=offset)
-        elif sched_type == SCHED_DAILY:
-            _, hour, minutes, action = item
-            item_time = timeutil.next_time_of_day(hour, minutes)
-        else:
-            raise Exception("Unknown scedule type {}".format(sched_type))
-
-        seconds_left = timeutil.seconds_until_time(item_time)
-        countdowns.append([seconds_left, item_time, action])
-
-    countdowns.sort(key=lambda x:x[0])
-
-    for c in countdowns:
-        _logger.info("At  {1!s:32} (T minus {0:5d} seconds), state {2:#04x}".format(*c))
-
+    countdowns = timeutil.schedule_countdowns(schedule.tasks)
     sleep_sec, _, action = countdowns[0]
     return (sleep_sec * 1000, action)
 
