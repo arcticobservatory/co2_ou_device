@@ -46,7 +46,10 @@ COMM_STATE_DEFAULTS = {
 total_chrono = machine.Timer.Chrono()
 
 def total_time_up(cc):
-    return total_chrono.read() > cc.total_connect_secs_max
+    time_up = total_chrono.read() > cc.total_connect_secs_max
+    if time_up:
+        _logger.warning("Hit total time limit (%d s)", cc.total_connect_secs_max)
+    return time_up
 
 tschrono = machine.Timer.Chrono()
 tschrono.start()
@@ -207,9 +210,7 @@ def push_sequential(ou_id, cc, dirname, ss):
         while not pushstate.dir_complete():
             while not pushstate.file_complete():
 
-                if total_time_up(cc):
-                    _logger.warning("Time up before finished sending. Quitting for now.")
-                    return
+                if total_time_up(cc): return
 
                 with TimedStep("Reading data %s" % pushstate):
                     with open(pushstate.fpath(), "rb") as f:
