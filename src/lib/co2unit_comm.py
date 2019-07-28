@@ -281,6 +281,9 @@ def pull_last_dir(ou_id, cc, dpath, ss):
     tmp_dir = "tmp/" + rpath
     fetch_paths = fetch_dir_list(ou_id, cc, rpath, recursive=True)
 
+    # Give a little more leeway with watchdog
+    wdt.init(1000*45)
+
     # Fetch each file
     _logger.info("Fetching files to %s", tmp_dir)
     for fpath in fetch_paths:
@@ -288,11 +291,14 @@ def pull_last_dir(ou_id, cc, dpath, ss):
         if fileutil.isfile(tmp_path): break
 
         path = "/ou/{id}/{rpath}/{fpath}".format(id=ou_id.hw_id, rpath=rpath, fpath=fpath)
+        wdt.feed()
         resp = request("GET", cc.sync_dest, path)
         fileutil.mkdirs(fileutil.dirname(tmp_path), wdt=wdt)
+        content = resp.content
+        wdt.feed()
         with open(tmp_path, "w") as f:
             # TODO: make sure to write all
-            f.write(resp.content)
+            f.write(content)
             wdt.feed()
 
     # When finished, move whole directory in place
