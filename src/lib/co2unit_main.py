@@ -194,7 +194,9 @@ def run(hw, run_state):
 
         import co2unit_update
         co2unit_update.wdt = wdt
-        co2unit_update.update_sequence(hw)
+        updated = co2unit_update.update_sequence(hw)
+        # After update, try communicating again so we know it worked
+        return (0, STATE_COMMUNICATE)
 
     if run_state == STATE_MEASURE:
         flash_count = nv_flash_count()
