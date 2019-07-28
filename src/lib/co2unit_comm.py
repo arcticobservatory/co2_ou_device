@@ -249,14 +249,21 @@ def push_sequential(ou_id, cc, dirname, ss):
 def fetch_dir_list(ou_id, cc, dpath, recursive=False):
     path = "/ou/{id}/{dpath}?recursive={recursive}".format(\
             id=ou_id.hw_id, dpath=dpath, recursive=recursive)
-    resp = request("GET", cc.sync_dest, path)
-    dirlist = resp.json()
-    return dirlist
+    resp = request("GET", cc.sync_dest, path, accept_statuses=[200,404])
+    if resp.status_code == 200:
+        dirlist = resp.json()
+        return dirlist
+    else:
+        return None
 
 def pull_last_dir(ou_id, cc, dpath, ss):
     # Find most recent update
     _logger.info("Fetching available directories in %s ...", dpath)
     dirlist = fetch_dir_list(ou_id, cc, dpath)
+    if not dirlist:
+        _logger.info("Remote %s is missing or empty", dpath)
+        return False
+
     most_recent = seqfile.last_file_in_sequence(dirlist)
     _logger.info("Latest in %s: %s", dpath, most_recent)
 
@@ -297,7 +304,7 @@ def pull_last_dir(ou_id, cc, dpath, ss):
     return True
 
 def transmit_data(ou_id, cc, cs):
-    path = "/ou/{id}/alive".format(id=ou_id.hw_id)
+    path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
     request("POST", cc.sync_dest, path)
 
     got_updates = False
