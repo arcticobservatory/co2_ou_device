@@ -97,8 +97,8 @@ def install_update(upstate, subpath):
             _logger.info("Copying new source into flash filesystem...")
             fileutil.copy_recursive(subpath+"/flash", "/flash", wdt=wdt)
 
-        if "conf_patch" in contents:
-            patch_configs(subpath + "/conf_patch")
+        if "conf-patch" in contents:
+            patch_configs(subpath + "/conf-patch")
 
         upstate.installed = subpath
         _logger.info("Finished installing update from %s", subpath)
