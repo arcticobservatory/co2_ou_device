@@ -86,10 +86,21 @@ def record_flash(hw):
     nv_flash_count(fc)
     _logger.info("New flash count: %d", fc)
 
-def crash_recovery_sequence():
+def crash_recovery_sequence(hw):
     _logger.info("Starting crash recovery sequence...")
+
+    try:
+        import co2unit_errors
+        co2unit_errors.warning(hw, "Had to run recovery procedure. Watchdog reset?")
+    except Exception as e:
+        _logger.exc(e, "Could not log warning")
+
     try:
         _logger.info("Making sure LTE modem is off")
+
+        # LTE init seems to be successful more often if we give it time first
+        time.sleep_ms(1000)
+
         import network
         _logger.info("Initializing LTE just to get handle...")
         lte = network.LTE()
@@ -174,7 +185,7 @@ def run(hw, run_state):
     hw.power_peripherals(True)
 
     if run_state == STATE_CRASH_RECOVERY:
-        crash_recovery_sequence()
+        crash_recovery_sequence(hw)
         return (0, STATE_SCHEDULE)
 
     if run_state == STATE_QUICK_HW_TEST:
