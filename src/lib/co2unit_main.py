@@ -32,12 +32,14 @@ SCHEDULE_PATH = "conf/schedule.json"
 SCHEDULE_TYPES = {
         "minutes": timeutil.next_even_minutes,
         "daily": timeutil.next_time_of_day,
+        "minutes_random": timeutil.next_minutes_random,
+        "daily_random": timeutil.next_time_of_day_random,
         }
 
 SCHEDULE_DEFAULT = {
         "tasks": [
             [STATE_MEASURE, 'minutes', 30, 0],
-            [STATE_COMMUNICATE, 'daily', 3, 10],
+            [STATE_COMMUNICATE, 'daily_random', 3, 2, 25],
             ]
         }
 
