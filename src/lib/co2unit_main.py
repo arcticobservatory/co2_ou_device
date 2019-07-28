@@ -121,6 +121,8 @@ def schedule_countdowns(tasks):
             raise Exception("Unknown schedule type {} in {}".format(sched_type, item))
 
         seconds_left = timeutil.seconds_until_time(item_time)
+        # Normalize time tuple before displaying it (handle rollover)
+        item_time = time.gmtime(time.mktime(item_time))
         countdowns.append([seconds_left, item_time, action])
 
     countdowns.sort(key=lambda x:x[0])
