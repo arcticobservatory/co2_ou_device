@@ -197,6 +197,7 @@ class PushSequentialState(object):
 
 
 def push_sequential(ou_id, cc, dirname, ss):
+    sync_dest = cc.sync_dest
 
     with TimedStep("Determine current sync state"):
         key = "ack_file"
@@ -227,7 +228,7 @@ def push_sequential(ou_id, cc, dirname, ss):
 
                 path = "/ou/{id}/push-sequential/{fpath}?offset={progress}".format(\
                         id=ou_id.hw_id, fpath=pushstate.fpath(), progress=pushstate.progress)
-                resp = request("PUT", cc.sync_dest, path, data=senddata, accept_statuses=[200,416])
+                resp = request("PUT", sync_dest, path, data=senddata, accept_statuses=[200,416])
 
                 if resp.status_code == 200:
                     pushstate.add_progress(readbytes)
@@ -247,9 +248,10 @@ def push_sequential(ou_id, cc, dirname, ss):
         _logger.info("%s: %s", dirname, ss[key])
 
 def fetch_dir_list(ou_id, cc, dpath, recursive=False):
+    sync_dest = cc.sync_dest
     path = "/ou/{id}/{dpath}?recursive={recursive}".format(\
             id=ou_id.hw_id, dpath=dpath, recursive=recursive)
-    resp = request("GET", cc.sync_dest, path, accept_statuses=[200,404])
+    resp = request("GET", sync_dest, path, accept_statuses=[200,404])
     if resp.status_code == 200:
         dirlist = resp.json()
         return dirlist
@@ -257,6 +259,7 @@ def fetch_dir_list(ou_id, cc, dpath, recursive=False):
         return None
 
 def pull_last_dir(ou_id, cc, dpath, ss):
+    sync_dest = cc.sync_dest
     # Find most recent update
     _logger.info("Fetching available directories in %s ...", dpath)
     dirlist = fetch_dir_list(ou_id, cc, dpath)
@@ -292,7 +295,7 @@ def pull_last_dir(ou_id, cc, dpath, ss):
 
         path = "/ou/{id}/{rpath}/{fpath}".format(id=ou_id.hw_id, rpath=rpath, fpath=fpath)
         wdt.feed()
-        resp = request("GET", cc.sync_dest, path)
+        resp = request("GET", sync_dest, path)
         fileutil.mkdirs(fileutil.dirname(tmp_path), wdt=wdt)
         content = resp.content
         wdt.feed()
@@ -310,8 +313,9 @@ def pull_last_dir(ou_id, cc, dpath, ss):
     return True
 
 def transmit_data(ou_id, cc, cs):
+    sync_dest = cc.sync_dest
     path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
-    request("POST", cc.sync_dest, path)
+    request("POST", sync_dest, path)
 
     got_updates = False
 
