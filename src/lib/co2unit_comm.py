@@ -196,8 +196,7 @@ class PushSequentialState(object):
         return self.dirindex == len(self.dirlist)
 
 
-def push_sequential(ou_id, cc, dirname, ss):
-    sync_dest = cc.sync_dest
+def push_sequential(sync_dest, ou_id, cc, dirname, ss):
 
     with TimedStep("Determine current sync state"):
         key = "ack_file"
@@ -247,8 +246,7 @@ def push_sequential(ou_id, cc, dirname, ss):
         ss[key] = pushstate.to_list()
         _logger.info("%s: %s", dirname, ss[key])
 
-def fetch_dir_list(ou_id, cc, dpath, recursive=False):
-    sync_dest = cc.sync_dest
+def fetch_dir_list(sync_dest, ou_id, cc, dpath, recursive=False):
     path = "/ou/{id}/{dpath}?recursive={recursive}".format(\
             id=ou_id.hw_id, dpath=dpath, recursive=recursive)
     resp = request("GET", sync_dest, path, accept_statuses=[200,404])
@@ -258,11 +256,10 @@ def fetch_dir_list(ou_id, cc, dpath, recursive=False):
     else:
         return None
 
-def pull_last_dir(ou_id, cc, dpath, ss):
-    sync_dest = cc.sync_dest
+def pull_last_dir(sync_dest, ou_id, cc, dpath, ss):
     # Find most recent update
     _logger.info("Fetching available directories in %s ...", dpath)
-    dirlist = fetch_dir_list(ou_id, cc, dpath)
+    dirlist = fetch_dir_list(sync_dest, ou_id, cc, dpath)
     if not dirlist:
         _logger.info("Remote %s is missing or empty", dpath)
         return False
@@ -282,7 +279,7 @@ def pull_last_dir(ou_id, cc, dpath, ss):
 
     _logger.info("Getting list of files in %s ...", rpath)
     tmp_dir = "tmp/" + rpath
-    fetch_paths = fetch_dir_list(ou_id, cc, rpath, recursive=True)
+    fetch_paths = fetch_dir_list(sync_dest, ou_id, cc, rpath, recursive=True)
 
     # Give a little more leeway with watchdog
     wdt.init(1000*45)
@@ -312,8 +309,7 @@ def pull_last_dir(ou_id, cc, dpath, ss):
 
     return True
 
-def transmit_data(ou_id, cc, cs):
-    sync_dest = cc.sync_dest
+def transmit_data(sync_dest, ou_id, cc, cs):
     path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
     request("POST", sync_dest, path)
 
@@ -325,9 +321,9 @@ def transmit_data(ou_id, cc, cs):
         ss = cs.sync_states[dirname]
 
         if dirtype == "push_sequential":
-            push_sequential(ou_id, cc, dirname, ss)
+            push_sequential(sync_dest, ou_id, cc, dirname, ss)
         elif dirtype == "pull_last_dir":
-            updated = pull_last_dir(ou_id, cc, dirname, ss)
+            updated = pull_last_dir(sync_dest, ou_id, cc, dirname, ss)
             got_updates = got_updates or updated
         else: _logger.warning("Unknown sync type for %s: %s", sdir, stype)
         _logger.info("ss[%s]: %s", dirname, ss)
@@ -355,7 +351,7 @@ def comm_sequence(hw):
 
     if not cc.sync_dest:
         _logger.error("No sync destination")
-        return
+        raise Exception
 
     try:
         # Check connect backoff state and skip this round if need be
@@ -386,8 +382,10 @@ def comm_sequence(hw):
             ts = timeutil.fetch_ntp_time()
             hw.set_both_rtcs(ts)
 
+        sync_dest = cc.sync_dest
+
         with TimedStep("Transmit data"):
-            got_updates = transmit_data(ou_id, cc, cs)
+            got_updates = transmit_data(sync_dest, ou_id, cc, cs)
 
     finally:
         with TimedStep("Save comm state", suppress_exception=True):
