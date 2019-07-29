@@ -146,15 +146,15 @@ def schedule_countdowns(tasks):
 def schedule_wake(hw):
     import configutil
 
-    hw.sync_to_most_reliable_rtc(reset_ok=True)
-    hw.mount_sd_card()
-
     try:
+        hw.sync_to_most_reliable_rtc(reset_ok=True)
+        hw.mount_sd_card()
+
         schedule_path = "/".join([hw.SDCARD_MOUNT_POINT, SCHEDULE_PATH])
         schedule = configutil.read_config_json(schedule_path, SCHEDULE_DEFAULT)
     except Exception as e:
         _logger.exc(e, "Could not read schdule config %s. Falling back to defaults", SCHEDULE_PATH)
-        schedule = SCHEDULE_DEFAULT
+        schedule = configutil.Namespace(**SCHEDULE_DEFAULT)
 
     _logger.info("Schedule: %s", schedule)
 
