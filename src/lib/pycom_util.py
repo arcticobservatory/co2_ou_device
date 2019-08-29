@@ -46,6 +46,33 @@ def mk_on_boot_fn(key, default=None):
 
     return on_boot_fn
 
+def lte_signal_quality(lte):
+    output = lte.send_at_cmd("AT+CSQ")
+    prefix = "\r\n+CSQ: "
+    suffix = "\r\n\r\nOK\r\n"
+    rssi_raw, ber_raw, rssi_dbm = None, None, None
+    if output.startswith(prefix) and output.endswith(suffix):
+        output = output[len(prefix):-len(suffix)]
+        try:
+            rssi_raw, ber_raw = output.split(",")
+            rssi_raw, ber_raw = int(rssi_raw), int(ber_raw)
+            if rssi_raw == 0: rssi_dbm = -113
+            elif rssi_raw == 1: rssi_dbm = -111
+            elif rssi_raw in range(2,31): rssi_dbm = rssi_raw_to_dbm(rssi_raw)
+            elif rssi_raw == 31: rssi_dbm = -51
+        except:
+            pass
+
+    return {"rssi_raw": rssi_raw, "ber_raw": ber_raw, "rssi_dbm": rssi_dbm }
+
+def rssi_raw_to_dbm(rssi_raw):
+    raw_min = 2
+    raw_max = 30
+    dbm_min = -109
+    dbm_max = -53
+    scaled = float(rssi_raw - raw_min) / (raw_max-raw_min) * (dbm_max-dbm_min) + dbm_min
+    return int(scaled)
+
 class SpiWrapper(machine.SPI):
     """
     Wrap the SPI driver for compatibility with the SDCard driver

@@ -10,6 +10,7 @@ import co2unit_errors
 import co2unit_id
 import configutil
 import fileutil
+import pycom_util
 import seqfile
 import timeutil
 
@@ -89,6 +90,9 @@ def lte_connect():
             if tschrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
             time.sleep_ms(50)
 
+        signal_quality = pycom_util.lte_signal_quality(lte)
+        _logger.info("Signal quality: %s", signal_quality)
+
     with TimedStep("LTE connect"):
         lte.connect()
         while True:
@@ -97,7 +101,7 @@ def lte_connect():
             if tschrono.read_ms() > 120 * 1000: raise TimeoutError("Timeout during LTE connect")
             time.sleep_ms(50)
 
-    return lte
+    return lte, signal_quality
 
 def lte_deinit(lte):
     if not lte: return
@@ -310,7 +314,11 @@ def pull_last_dir(sync_dest, ou_id, cc, dpath, ss):
     return True
 
 def transmit_data(sync_dest, ou_id, cc, cs):
-    path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
+    path = "/ou/{id}/alive?site_code={sc}&rssi_raw={rr}&rrsi_dbm={rd}&ber_raw={br}" \
+            .format(id=ou_id.hw_id, sc=ou_id.site_code,
+                    rr=cs.signal_quality["rssi_raw"],
+                    rd=cs.signal_quality["rssi_dbm"],
+                    br=cs.signal_quality["ber_raw"])
     request("POST", sync_dest, path)
 
     got_updates = False
@@ -369,9 +377,10 @@ def comm_sequence(hw):
         with TimedStep("LTE init and connect"):
             try:
                 # Attempt to connect
-                lte = lte_connect()
+                lte, signal_quality = lte_connect()
                 # If connection successful, reset backoff
                 cs.connect_backoff = [0, 0]
+                cs.signal_quality = signal_quality
             except:
                 # If connection fails, increase backoff
                 backoff = min(backoff + 1, cc.connect_backoff_max)
