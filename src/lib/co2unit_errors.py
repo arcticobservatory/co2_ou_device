@@ -15,15 +15,23 @@ def _record(hw, level, msg, exc=None):
         hw.sync_to_most_reliable_rtc(reset_ok=True)
         _logger.info("Giving the SD card a moment to boot...")
         time.sleep_ms(100)
+
     hw.mount_sd_card()
 
     errors_dir = hw.SDCARD_MOUNT_POINT + "/errors"
     errors_match = ("errors-", ".txt")
 
     target = fileutil.prep_append_file(dir=errors_dir, match=errors_match)
-    yy, mm, dd, hh, mm, ss, _, _ = time.gmtime()
+
+    tt = time.gmtime()
+    try:
+        import timeutil
+        tt = timeutil.format_time(tt)
+    except:
+        pass
+
     with open(target, "at") as f:
-        f.write("----- {}-{}-{} {}:{}:{} {:5} {}\n".format(yy,mm,dd,hh,mm,ss, level, msg))
+        f.write("----- {} {:5} {}\n".format(tt, level, msg))
         if exc:
             sys.print_exception(exc, f)
     _logger.info("Recorded error successfully to %s", target)

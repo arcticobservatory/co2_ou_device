@@ -5,6 +5,10 @@ class DummyWdt(object):
     def init(self, timeout): pass
     def feed(self): pass
 
+def format_time(tt):
+    yy, mo, dd, hh, mm, ss, _, _ = tt
+    return "{:04}-{:02}-{:02} {:02}:{:02}:{:02}".format(yy,mo,dd,hh,mm,ss)
+
 def fetch_ntp_time():
     import ntptime
     SECONDS_1970_TO_2000 = time.mktime((2000,1,1,0,0,0,0,0))
