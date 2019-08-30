@@ -12,6 +12,7 @@ def _record(hw, level, msg, exc=None):
 
     if not hw.power_peripherals():
         hw.power_peripherals(True)
+        hw.sync_to_most_reliable_rtc(reset_ok=True)
         _logger.info("Giving the SD card a moment to boot...")
         time.sleep_ms(100)
     hw.mount_sd_card()
