@@ -368,7 +368,7 @@ def comm_sequence(hw):
             _logger.info("Skipping comm due to backoff: %s/%s", tried, backoff)
             co2unit_errors.warning(hw, "Skipping comm due to backoff: %s/%s" % (tried,backoff))
             cs.connect_backoff = [tried+1, backoff]
-            return
+            return None, False
 
         with TimedStep("Give LTE a moment to boot"):
             # LTE init seems to be successful more often if we give it time first
