@@ -250,6 +250,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
         hw.sync_to_most_reliable_rtc()
 
     lte = None
+    signal_quality = None
 
     try:
         with CheckStep(FLAG_LTE_FW_API):
@@ -342,7 +343,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
     _logger.info("Failures after LTE test: 0x%04x", failures)
     display_errors_led()
 
-    if signal_quality["rssi_raw"] in range(0,32):
+    if signal_quality and signal_quality["rssi_raw"] in range(0,32):
         led_show_scalar(signal_quality["rssi_raw"], [0,31])
 
     pycom.rgbled(0x0)
