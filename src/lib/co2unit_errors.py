@@ -21,8 +21,9 @@ def _record(hw, level, msg, exc=None):
     errors_match = ("errors-", ".txt")
 
     target = fileutil.prep_append_file(dir=errors_dir, match=errors_match)
+    yy, mm, dd, hh, mm, ss, _, _ = time.gmtime()
     with open(target, "at") as f:
-        f.write("----- {} {:5} {}\n".format(time.gmtime(), level, msg))
+        f.write("----- {}-{}-{} {}:{}:{} {:5} {}\n".format(yy,mm,dd,hh,mm,ss, level, msg))
         if exc:
             sys.print_exception(exc, f)
     _logger.info("Recorded error successfully to %s", target)
