@@ -65,13 +65,13 @@ def lte_signal_quality(lte):
 
     return {"rssi_raw": rssi_raw, "ber_raw": ber_raw, "rssi_dbm": rssi_dbm }
 
-def rssi_raw_to_dbm(rssi_raw):
-    raw_min = 2
-    raw_max = 30
-    dbm_min = -109
-    dbm_max = -53
-    scaled = float(rssi_raw - raw_min) / (raw_max-raw_min) * (dbm_max-dbm_min) + dbm_min
+def translate_linear(i, abcd):
+    a, b, c, d = abcd
+    scaled = float(i-a) / (b-a) * (d-c) + c
     return int(scaled)
+
+def rssi_raw_to_dbm(rssi_raw):
+    return translate_linear(rssi_raw, [2, 30, -109, -53])
 
 class SpiWrapper(machine.SPI):
     """

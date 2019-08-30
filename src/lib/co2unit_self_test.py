@@ -117,6 +117,30 @@ def display_errors_led(flags = None):
 
     pycom.rgbled(0x0)
 
+def led_show_scalar(i, ab):
+    min_br = 0x00
+    max_br = 0x44
+    a, b = ab
+    i = max(i, a)
+    i = min(i, b)
+    i_br = pycom_util.translate_linear(i, [a,b, min_br, max_br])
+    step_ms = 1000 // max_br
+
+    # Repeat a few times
+    for _ in range(0,3):
+        # Ramp up to max brightness to give user a sense of scale
+        for br in range(min_br, max_br+1):
+            pycom.rgbled(br)
+            time.sleep_ms(step_ms)
+        # Ramp down to display value
+        for br in reversed(range(i_br, max_br+1)):
+            pycom.rgbled(br)
+            time.sleep_ms(step_ms)
+        # Hold it
+        time.sleep_ms(500)
+
+    pycom.rgbled(0x00)
+
 class CheckStep(object):
     def __init__(self, flag, suppress_exception=False):
         self.flag = flag
@@ -260,6 +284,9 @@ def test_lte_ntp(hw, max_drift_secs=4):
 
             _logger.info("LTE attach ok (%d ms). Connecting...", chrono.read_ms())
 
+        if signal_quality["rssi_raw"] in range(0,32):
+            led_show_scalar(signal_quality["rssi_raw"], [0,31])
+
         with CheckStep(FLAG_LTE_CONNECT):
             chrono.reset()
             lte.connect()
@@ -314,6 +341,9 @@ def test_lte_ntp(hw, max_drift_secs=4):
     show_boot_flags()
     _logger.info("Failures after LTE test: 0x%04x", failures)
     display_errors_led()
+
+    if signal_quality["rssi_raw"] in range(0,32):
+        led_show_scalar(signal_quality["rssi_raw"], [0,31])
 
     pycom.rgbled(0x0)
     timeutil.user_interrupt_countdown(wdt=wdt)
