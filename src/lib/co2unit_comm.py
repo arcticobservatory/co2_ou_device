@@ -38,6 +38,7 @@ COMM_STATE_PATH = STATE_DIR + "/ou-comm-state.json"
 COMM_STATE_DEFAULTS = {
         "sync_states": {},
         "connect_backoff": [0, 0],
+        "signal_quality": None,
         }
 
 total_chrono = machine.Timer.Chrono()
@@ -71,13 +72,16 @@ class TimedStep(object):
         else:
             _logger.info("%s OK (%d ms)", self.desc, elapsed)
 
-def lte_connect():
+def lte_connect(hw):
     total_chrono.start()
 
     # Set watchdog timer to reboot if LTE init hangs.
     # LTE init can sometimes hang indefinitely.
     # When successful it usually takes around 3-6 seconds.
     wdt.init(10*1000)
+
+    lte = None
+    signal_quality = None
 
     with TimedStep("LTE init"):
         lte = network.LTE()
@@ -90,15 +94,20 @@ def lte_connect():
             if tschrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
             time.sleep_ms(50)
 
-        signal_quality = pycom_util.lte_signal_quality(lte)
-        _logger.info("Signal quality: %s", signal_quality)
+        try:
+            signal_quality = pycom_util.lte_signal_quality(lte)
+            if signal_quality:
+                _logger.info("LTE attached. Signal quality %s", signal_quality)
+                co2unit_errors.info(hw, "LTE attached. Signal quality {}".format(signal_quality))
+        except:
+            _logger.exception("While trying to measure and log signal strength")
 
     with TimedStep("LTE connect"):
         lte.connect()
         while True:
             wdt.feed()
             if lte.isconnected(): break
-            if tschrono.read_ms() > 120 * 1000: raise TimeoutError("Timeout during LTE connect")
+            if tschrono.read_ms() > 120 * 1000: raise TimeoutError("Timeout during LTE connect (%s)")
             time.sleep_ms(50)
 
     return lte, signal_quality
@@ -314,11 +323,13 @@ def pull_last_dir(sync_dest, ou_id, cc, dpath, ss):
     return True
 
 def transmit_data(sync_dest, ou_id, cc, cs):
-    path = "/ou/{id}/alive?site_code={sc}&rssi_raw={rr}&rrsi_dbm={rd}&ber_raw={br}" \
-            .format(id=ou_id.hw_id, sc=ou_id.site_code,
-                    rr=cs.signal_quality["rssi_raw"],
-                    rd=cs.signal_quality["rssi_dbm"],
-                    br=cs.signal_quality["ber_raw"])
+    path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
+
+    try:
+        path += "&rssi_raw={rssi_raw}&rssi_dbm={rssi_dbm}&ber_raw={ber_raw}".format(**cs.signal_quality)
+    except:
+        pass
+
     request("POST", sync_dest, path)
 
     got_updates = False
@@ -377,7 +388,7 @@ def comm_sequence(hw):
         with TimedStep("LTE init and connect"):
             try:
                 # Attempt to connect
-                lte, signal_quality = lte_connect()
+                lte, signal_quality = lte_connect(hw)
                 # If connection successful, reset backoff
                 cs.connect_backoff = [0, 0]
                 cs.signal_quality = signal_quality

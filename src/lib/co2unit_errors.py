@@ -41,3 +41,6 @@ def record_error(hw, exc, msg):
 
 def warning(hw, msg):
     _record(hw, "WARN", msg)
+
+def info(hw, msg):
+    _record(hw, "INFO", msg)
