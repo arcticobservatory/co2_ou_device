@@ -88,19 +88,19 @@ def lte_connect(hw):
 
     with TimedStep("LTE attach"):
         lte.attach()
-        while True:
-            wdt.feed()
-            if lte.isattached(): break
-            if tschrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
-            time.sleep_ms(50)
-
         try:
-            signal_quality = pycom_util.lte_signal_quality(lte)
-            if signal_quality:
-                _logger.info("LTE attached. Signal quality %s", signal_quality)
-                co2unit_errors.info(hw, "LTE attached. Signal quality {}".format(signal_quality))
-        except:
-            _logger.exception("While trying to measure and log signal strength")
+            while True:
+                wdt.feed()
+                if lte.isattached(): break
+                if tschrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
+                time.sleep_ms(50)
+        finally:
+            try:
+                signal_quality = pycom_util.lte_signal_quality(lte)
+                _logger.info("LTE attached: %s. Signal quality %s", lte.isattached(), signal_quality)
+                co2unit_errors.info(hw, "LTE attached: {}. Signal quality {}".format(lte.isattached(), signal_quality))
+            except:
+                _logger.exception("While trying to measure and log signal strength")
 
     with TimedStep("LTE connect"):
         lte.connect()
