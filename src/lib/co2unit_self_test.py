@@ -350,4 +350,3 @@ def test_lte_ntp(hw, max_drift_secs=4):
         led_show_scalar(signal_quality["rssi_raw"], [0,31])
 
     pycom.rgbled(0x0)
-    timeutil.user_interrupt_countdown(wdt=wdt)
