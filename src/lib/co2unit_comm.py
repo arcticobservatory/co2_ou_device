@@ -98,7 +98,7 @@ def lte_connect(hw):
             try:
                 signal_quality = pycom_util.lte_signal_quality(lte)
                 _logger.info("LTE attached: %s. Signal quality %s", lte.isattached(), signal_quality)
-                co2unit_errors.info(hw, "LTE attached: {}. Signal quality {}".format(lte.isattached(), signal_quality))
+                co2unit_errors.info(hw, "Comm cycle. LTE attached: {}. Signal quality {}".format(lte.isattached(), signal_quality))
             except:
                 _logger.exception("While trying to measure and log signal strength")
 

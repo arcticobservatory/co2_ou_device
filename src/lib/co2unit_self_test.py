@@ -274,18 +274,21 @@ def test_lte_ntp(hw, max_drift_secs=4):
             _logger.info("LTE attaching... (up to 2 minutes)")
             chrono.reset()
             lte.attach()
-            while True:
-                wdt.feed()
-                if lte.isattached(): break
-                if chrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
-                time.sleep_ms(50)
-
-            signal_quality = pycom_util.lte_signal_quality(lte)
-            _logger.info("Signal quality: %s", signal_quality)
+            try:
+                while True:
+                    wdt.feed()
+                    if lte.isattached(): break
+                    if chrono.read_ms() > 150 * 1000: raise TimeoutError("Timeout during LTE attach")
+                    time.sleep_ms(50)
+            finally:
+                signal_quality = pycom_util.lte_signal_quality(lte)
+                _logger.info("Signal quality: %s", signal_quality)
+                import co2unit_errors
+                co2unit_errors.info(hw, "Self-test. LTE attached: {}. Signal quality {}".format(lte.isattached(), signal_quality))
 
             _logger.info("LTE attach ok (%d ms). Connecting...", chrono.read_ms())
 
-        if signal_quality["rssi_raw"] in range(0,32):
+        if signal_quality["rssi_raw"] in range(0,31):
             led_show_scalar(signal_quality["rssi_raw"], [0,31])
 
         with CheckStep(FLAG_LTE_CONNECT):
