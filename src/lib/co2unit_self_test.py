@@ -234,7 +234,6 @@ def quick_test_hw(hw):
     wdt.feed()
 
     pycom.rgbled(0x0)
-    timeutil.user_interrupt_countdown(wdt=wdt)
 
 def test_lte_ntp(hw, max_drift_secs=4):
     _logger.info("Starting LTE test...")

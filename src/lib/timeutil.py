@@ -61,15 +61,3 @@ def seconds_until_time(next_tt):
     now = time.time()
     secs = time.mktime(next_tt) - now
     return secs
-
-def user_interrupt_countdown(secs=5, wdt=None):
-    print("Pausing before continuing. If you want to interrupt, now is a good time.")
-    print("Continuing in", end="")
-    try:
-        for i in reversed(range(1, secs+1)):
-            print(" {}".format(i), end="")
-            for _ in range(0,100):
-                time.sleep_ms(10)
-                if wdt: wdt.feed()
-    finally:
-        print()
