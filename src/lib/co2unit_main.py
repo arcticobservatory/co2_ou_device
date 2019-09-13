@@ -118,7 +118,7 @@ def set_persistent_settings():
     pycom.lte_modem_en_on_boot(False)
     pycom.heartbeat_on_boot(False)
     pycom.wdt_on_boot(True)
-    pycom.wdt_on_boot_timeout(10*1000)
+    pycom.wdt_on_boot_timeout(1000*30)
 
 def schedule_countdowns(tasks):
     _logger.info("Now %s", time.gmtime())

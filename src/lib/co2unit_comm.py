@@ -75,11 +75,6 @@ class TimedStep(object):
 def lte_connect(hw):
     total_chrono.start()
 
-    # Set watchdog timer to reboot if LTE init hangs.
-    # LTE init can sometimes hang indefinitely.
-    # When successful it usually takes around 3-6 seconds.
-    wdt.init(10*1000)
-
     lte = None
     signal_quality = None
 
@@ -114,10 +109,6 @@ def lte_connect(hw):
 
 def lte_deinit(lte):
     if not lte: return
-
-    # LTE disconnect often takes a few seconds
-    # Set a more forgiving watchdog timer timeout
-    wdt.init(20*1000)
 
     try:
         if lte.isconnected():
@@ -293,9 +284,6 @@ def pull_last_dir(sync_dest, ou_id, cc, dpath, ss):
     _logger.info("Getting list of files in %s ...", rpath)
     tmp_dir = "tmp/" + rpath
     fetch_paths = fetch_dir_list(sync_dest, ou_id, cc, rpath, recursive=True)
-
-    # Give a little more leeway with watchdog
-    wdt.init(1000*45)
 
     # Fetch each file
     _logger.info("Fetching files to %s", tmp_dir)
