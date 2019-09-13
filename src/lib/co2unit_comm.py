@@ -388,10 +388,6 @@ def comm_sequence(hw):
                 cs.connect_backoff = [1, backoff]
                 raise
 
-        with TimedStep("Set time from NTP", suppress_exception=True):
-            ts = timeutil.fetch_ntp_time()
-            hw.set_both_rtcs(ts)
-
         if isinstance(cc.sync_dest, str):
             sync_dests = [cc.sync_dest]
         else:
@@ -403,6 +399,10 @@ def comm_sequence(hw):
                     got_updates = transmit_data(sync_dest, ou_id, cc, cs)
             except Exception as e:
                 co2unit_errors.record_error(hw, e, "Error transmitting to {}".format(sync_dest))
+
+        with TimedStep("Set time from NTP", suppress_exception=True):
+            ts = timeutil.fetch_ntp_time()
+            hw.set_both_rtcs(ts)
 
     finally:
         with TimedStep("Save comm state", suppress_exception=True):
