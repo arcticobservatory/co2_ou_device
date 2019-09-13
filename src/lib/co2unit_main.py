@@ -189,14 +189,14 @@ def run(hw, run_state):
         return (0, STATE_SCHEDULE)
 
     if run_state == STATE_QUICK_HW_TEST:
-        next_state_on_boot(STATE_QUICK_HW_TEST)
+        next_state_on_boot(STATE_LTE_TEST)
         import co2unit_self_test
         co2unit_self_test.wdt = wdt
         co2unit_self_test.quick_test_hw(hw)
         return (0, STATE_LTE_TEST)
 
     if run_state == STATE_LTE_TEST:
-        next_state_on_boot(STATE_LTE_TEST)
+        next_state_on_boot(STATE_UPDATE)
         import co2unit_self_test
         co2unit_self_test.wdt = wdt
         co2unit_self_test.test_lte_ntp(hw)
@@ -207,6 +207,7 @@ def run(hw, run_state):
         return schedule_wake(hw)
 
     if run_state == STATE_UPDATE:
+        next_state_on_boot(STATE_COMMUNICATE)
         set_persistent_settings()
 
         import co2unit_update
