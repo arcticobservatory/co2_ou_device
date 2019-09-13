@@ -243,16 +243,16 @@ def test_lte_ntp(hw, max_drift_secs=4):
         with CheckStep(FLAG_LTE_FW_API):
             from network import LTE
 
-        _logger.info("Give LTE a moment to boot")
-        # LTE init seems to be successful more often if we give it time first
-        time.sleep_ms(1000)
-
         with CheckStep(FLAG_LTE_INIT):
+            # _logger.info("Give LTE a moment to boot")
+            # LTE init seems to be successful more often if we give it time first
+            # time.sleep_ms(1000)
+            # wdt.feed()
+
             _logger.info("Init LTE...")
             chrono.reset()
             lte = LTE()
             _logger.info("LTE init ok (%d ms)", chrono.read_ms())
-            wdt.feed()
     except:
         return failures
 
