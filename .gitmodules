@@ -1,6 +1,6 @@
 [submodule "thirdparty/micropython"]
 	path = thirdparty/micropython
-	url = https://github.com/micropython/micropython.git
+	url = https://github.com/arcticobservatory/micropython.git
 [submodule "thirdparty/pycom-libraries"]
 	path = thirdparty/pycom-libraries
 	url = https://github.com/pycom/pycom-libraries.git
