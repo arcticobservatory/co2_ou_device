@@ -1,7 +1,8 @@
 # Driver for SD card access over SPI
 #
 # Copied unmodified from the pycom-micropython-sigfox repository
-# https://github.com/pycom/pycom-micropython-sigfox/blob/master/drivers/sdcard/sdcard.py
+#   (no code changes, only added this header)
+#   https://github.com/pycom/pycom-micropython-sigfox/blob/master/drivers/sdcard/sdcard.py
 #
 # Although this file is present in the Pycom firmware sources, it is not
 # available for import in the firmware on the FiPy. So, we have to put a copy
@@ -10,7 +11,7 @@
 # The original file is released under the Pycom license v2.2,
 # which states that the file can be used as if under GPLv3 or later,
 # or that it can be unsed without publishing source code if it is used unmodified.
-# https://github.com/pycom/pycom-libraries/tree/master/license
+#   https://github.com/pycom/pycom-libraries/tree/master/license
 #
 
 """

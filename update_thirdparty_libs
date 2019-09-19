@@ -11,10 +11,12 @@ cat > src/lib/logging.py <<-END
 # MicroPython reimplementation of Python's logging library
 #
 # Copied unmodified from the micropython-lib repository
-# https://github.com/micropython/micropython-lib/blob/master/logging/logging.py
+#   (no code changes, only added this header)
+#   https://github.com/micropython/micropython-lib/blob/master/logging/logging.py
 #
 # Original library is MIT licensed, as noted in setup.py
-# https://github.com/micropython/micropython-lib/blob/master/logging/setup.py
+#   https://github.com/micropython/micropython-lib/blob/master/logging/setup.py
+#
 
 END
 cat thirdparty/micropython-lib/logging/logging.py >> src/lib/logging.py
@@ -41,6 +43,7 @@ cat > src/lib/ntptime.py <<-END
 #
 # Original library is MIT licensed
 # https://github.com/micropython/micropython/blob/master/LICENSE
+#
 
 END
 cat thirdparty/micropython/ports/esp8266/modules/ntptime.py >> src/lib/ntptime.py
@@ -53,12 +56,14 @@ cat > src/lib/onewire.py <<-END
 # Driver onewire bus
 #
 # Copied unmodified from the pycom-libraries repository
-# https://github.com/pycom/pycom-libraries/blob/master/lib/onewire/onewire.py
+#   (no code changes, only added this header)
+#   https://github.com/pycom/pycom-libraries/blob/master/lib/onewire/onewire.py
 #
 # Original code is released under the Pycom license v2.2,
 # which states that the file can be used as if under GPLv3 or later,
 # or that it can be unsed without publishing source code if it is used unmodified.
-# https://github.com/pycom/pycom-libraries/tree/master/license
+#   https://github.com/pycom/pycom-libraries/tree/master/license
+#
 
 END
 cat thirdparty/pycom-libraries/lib/onewire/onewire.py >> src/lib/onewire.py
@@ -68,7 +73,8 @@ cat > src/lib/sdcard.py <<-END
 # Driver for SD card access over SPI
 #
 # Copied unmodified from the pycom-micropython-sigfox repository
-# https://github.com/pycom/pycom-micropython-sigfox/blob/master/drivers/sdcard/sdcard.py
+#   (no code changes, only added this header)
+#   https://github.com/pycom/pycom-micropython-sigfox/blob/master/drivers/sdcard/sdcard.py
 #
 # Although this file is present in the Pycom firmware sources, it is not
 # available for import in the firmware on the FiPy. So, we have to put a copy
@@ -77,7 +83,7 @@ cat > src/lib/sdcard.py <<-END
 # The original file is released under the Pycom license v2.2,
 # which states that the file can be used as if under GPLv3 or later,
 # or that it can be unsed without publishing source code if it is used unmodified.
-# https://github.com/pycom/pycom-libraries/tree/master/license
+#   https://github.com/pycom/pycom-libraries/tree/master/license
 #
 
 END
@@ -91,9 +97,11 @@ cat > src/lib/ds3231.py <<-END
 # Driver for DS3231 RTC
 #
 # Copied unmodified from the uptyon-aq-monitor repository
-# https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
+#   (no code changes, only added this header)
+#   https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
 #
 # Original file is MIT licenced
+#
 
 END
 cat thirdparty/upython-aq-monitor/lib/ds3231.py >> src/lib/ds3231.py

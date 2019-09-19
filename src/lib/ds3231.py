@@ -1,9 +1,11 @@
 # Driver for DS3231 RTC
 #
 # Copied unmodified from the uptyon-aq-monitor repository
-# https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
+#   (no code changes, only added this header)
+#   https://github.com/ayoy/upython-aq-monitor/blob/master/lib/ds3231.py
 #
 # Original file is MIT licenced
+#
 
 # MicroPython DS3231 precison real time clock driver for Pycom devices.
 # Adapted from Pyboard driver at https://github.com/peterhinch/micropython-samples
