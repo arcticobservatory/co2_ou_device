@@ -183,6 +183,9 @@ def run(hw, run_state):
 
     # Turn on peripherals
     hw.power_peripherals(True)
+    # Trying to access the SD card too quickly often results in IO errors
+    _logger.info("Giving hardware a moment after power on")
+    time.sleep_ms(100)
 
     if run_state == STATE_CRASH_RECOVERY:
         crash_recovery_sequence(hw)

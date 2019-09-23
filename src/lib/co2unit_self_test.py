@@ -27,6 +27,9 @@ FLAG_LTE_CONNECT    = const(1<<9)
 FLAG_NTP_FETCH      = const(1<<10)
 FLAG_LTE_SHUTDOWN   = const(1<<11)
 
+FLAG_COMM_CONFIG    = const(1<<12)
+FLAG_COMM_PING      = const(1<<13)
+
 FLAG_MAX_SHIFT      = const(16)
 
 failures = 0x0
@@ -49,6 +52,9 @@ def flag_color(flag):
     elif flag==FLAG_NTP_FETCH      : return 0x006622
     elif flag==FLAG_LTE_SHUTDOWN   : return 0x000022
 
+    elif flag==FLAG_COMM_CONFIG     : return 0x220000
+    elif flag==FLAG_COMM_PING       : return 0x220022
+
     else: return 0x0
 
 def flag_name(flag):
@@ -68,6 +74,9 @@ def flag_name(flag):
     elif flag==FLAG_LTE_CONNECT    : return "FLAG_LTE_CONNECT"
     elif flag==FLAG_NTP_FETCH      : return "FLAG_NTP_FETCH"
     elif flag==FLAG_LTE_SHUTDOWN   : return "FLAG_LTE_SHUTDOWN"
+
+    elif flag==FLAG_COMM_CONFIG     : return "FLAG_COMM_CONFIG"
+    elif flag==FLAG_COMM_PING       : return "FLAG_COMM_PING"
 
     else: raise Exception("Unknown flag 0x%04x" % flag)
 
@@ -233,6 +242,19 @@ def test_lte_ntp(hw, max_drift_secs=4):
     chrono = machine.Timer.Chrono()
     chrono.start()
 
+    with CheckStep(FLAG_SD_CARD, suppress_exception=True):
+        hw.mount_sd_card()
+
+    ou_id = None
+    cc = None
+    cs = None
+
+    with CheckStep(FLAG_COMM_CONFIG, suppress_exception=True):
+        import os
+        import co2unit_comm
+        os.chdir(hw.SDCARD_MOUNT_POINT)
+        ou_id, cc, cs = co2unit_comm.read_comm_config(hw)
+
     with CheckStep(FLAG_TIME_SOURCE, suppress_exception=True):
         hw.sync_to_most_reliable_rtc()
 
@@ -287,6 +309,12 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 if chrono.read_ms() > 120 * 1000: raise TimeoutError("Timeout during LTE connect")
                 time.sleep_ms(50)
             _logger.info("LTE connect ok (%d ms)", chrono.read_ms())
+
+        with CheckStep(FLAG_COMM_PING, suppress_exception=True):
+            import co2unit_comm
+            for sync_dest in cc.sync_dest:
+                co2unit_comm.send_alive_ping(sync_dest, ou_id, cc, cs)
+                wdt.feed()
 
         with CheckStep(FLAG_NTP_FETCH, suppress_exception=True):
             from machine import RTC

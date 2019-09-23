@@ -55,6 +55,10 @@ def read_comm_config(hw):
         _logger.error("No sync destination")
         raise Exception
 
+    # Make sure sync_dest is always iterable
+    if isinstance(cc.sync_dest, str):
+        cc.sync_dest = [cc.sync_dest]
+
     return ou_id, cc, cs
 
 def save_comm_state(cs):
@@ -408,12 +412,7 @@ def comm_sequence(hw):
                 cs.connect_backoff = [1, backoff]
                 raise
 
-        if isinstance(cc.sync_dest, str):
-            sync_dests = [cc.sync_dest]
-        else:
-            sync_dests = cc.sync_dest
-
-        for sync_dest in sync_dests:
+        for sync_dest in cc.sync_dest:
             try:
                 with TimedStep("Transmit data to {}".format(sync_dest)):
                     got_updates = transmit_data(sync_dest, ou_id, cc, cs)
