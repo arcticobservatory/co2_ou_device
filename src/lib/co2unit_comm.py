@@ -161,6 +161,16 @@ def request(method, host, path, data=None, json=None, headers={}, accept_statuse
         wdt.feed()
         return resp
 
+def send_alive_ping(sync_dest, ou_id, cc, cs):
+    path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
+
+    try:
+        path += "&rssi_raw={rssi_raw}&rssi_dbm={rssi_dbm}&ber_raw={ber_raw}".format(**cs.signal_quality)
+    except:
+        pass
+
+    return request("POST", sync_dest, path)
+
 class PushSequentialState(object):
     def __init__(self, dirname, fname=None, progress=None, totalsize=None):
         self.fname = fname
@@ -332,14 +342,9 @@ def pull_last_dir(sync_dest, ou_id, cc, dpath, ss):
     return True
 
 def transmit_data(sync_dest, ou_id, cc, cs):
-    path = "/ou/{id}/alive?site_code={sc}".format(id=ou_id.hw_id, sc=ou_id.site_code)
 
-    try:
-        path += "&rssi_raw={rssi_raw}&rssi_dbm={rssi_dbm}&ber_raw={ber_raw}".format(**cs.signal_quality)
-    except:
-        pass
-
-    request("POST", sync_dest, path)
+    with TimedStep("Send alive ping"):
+        send_alive_ping(sync_dest, ou_id, cc, cs)
 
     got_updates = False
 
