@@ -21,7 +21,7 @@ hw = None
 exit_to_repl_after = False
 
 try:
-    WDT_TIMEOUT_DEFAULT     = const(1000*30)
+    WDT_TIMEOUT_DEFAULT     = const(1000*60)
     WDT_TIMEOUT_REPL        = const(1000*60*30)
     ERROR_SLEEP_MS_DEFAULT  = const(1000*60*15)
 
