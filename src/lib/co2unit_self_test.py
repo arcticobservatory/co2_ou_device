@@ -322,7 +322,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
 
             chrono.reset()
             irtc = RTC()
-            ts = timeutil.fetch_ntp_time()
+            ts = timeutil.fetch_ntp_time(cc.ntp_host if cc else None)
             idrift = ts - time.mktime(irtc.now())
             if abs(idrift) < max_drift_secs:
                 _logger.info("Drift from NTP: %s s; within threshold (%d s)", idrift, max_drift_secs)

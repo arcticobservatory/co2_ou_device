@@ -9,12 +9,12 @@ def format_time(tt):
     yy, mo, dd, hh, mm, ss, _, _ = tt
     return "{:04}-{:02}-{:02} {:02}:{:02}:{:02}".format(yy,mo,dd,hh,mm,ss)
 
-def fetch_ntp_time():
+def fetch_ntp_time(ntp_host=None):
     import ntptime
     SECONDS_1970_TO_2000 = time.mktime((2000,1,1,0,0,0,0,0))
     # NTP returns seconds since 1900
     # The ntptime lib adjusts that to seconds since 2000
-    seconds_2000_to_now = ntptime.time()
+    seconds_2000_to_now = ntptime.time(ntp_host)
     # The Pycom time lib uses seconds since 1970
     seconds_1970_to_now = SECONDS_1970_TO_2000 + seconds_2000_to_now
     return seconds_1970_to_now

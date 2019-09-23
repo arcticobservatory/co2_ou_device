@@ -27,6 +27,7 @@ COMM_CONF_DEFAULTS = {
             ["errors", "push_sequential"],
             ["updates", "pull_last_dir"],
             ],
+        "ntp_host": None,   # None will defer to library default (pool.ntp.org)
         "ntp_max_drift_secs": 4,
         "send_chunk_size": 4*1024,
         "total_connect_secs_max": 60*5,
@@ -420,7 +421,7 @@ def comm_sequence(hw):
                 co2unit_errors.record_error(hw, e, "Error transmitting to {}".format(sync_dest))
 
         with TimedStep("Set time from NTP", suppress_exception=True):
-            ts = timeutil.fetch_ntp_time()
+            ts = timeutil.fetch_ntp_time(cc.ntp_host)
             hw.set_both_rtcs(ts)
 
     finally:
