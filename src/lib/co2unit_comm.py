@@ -41,6 +41,27 @@ COMM_STATE_DEFAULTS = {
         "signal_quality": None,
         }
 
+def read_comm_config(hw):
+    """
+    Read comm config
+
+    SD card should be mounted and the current directory
+    """
+    ou_id = configutil.read_config_json(co2unit_id.OU_ID_PATH, co2unit_id.OU_ID_DEFAULTS)
+    cc = configutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
+    cs = configutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
+
+    if not cc.sync_dest:
+        _logger.error("No sync destination")
+        raise Exception
+
+    return ou_id, cc, cs
+
+def save_comm_state(cs):
+    fileutil.mkdirs(STATE_DIR, wdt=wdt)
+    configutil.save_config_json(COMM_STATE_PATH, cs)
+    _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
+
 total_chrono = machine.Timer.Chrono()
 
 def total_time_up(cc):
@@ -352,13 +373,7 @@ def comm_sequence(hw):
 
     os.chdir(hw.SDCARD_MOUNT_POINT)
 
-    ou_id = configutil.read_config_json(co2unit_id.OU_ID_PATH, co2unit_id.OU_ID_DEFAULTS)
-    cc = configutil.read_config_json(COMM_CONF_PATH, COMM_CONF_DEFAULTS)
-    cs = configutil.read_config_json(COMM_STATE_PATH, COMM_STATE_DEFAULTS)
-
-    if not cc.sync_dest:
-        _logger.error("No sync destination")
-        raise Exception
+    ou_id, cc, cs = read_comm_config(hw)
 
     try:
         # Check connect backoff state and skip this round if need be
@@ -406,9 +421,7 @@ def comm_sequence(hw):
 
     finally:
         with TimedStep("Save comm state", suppress_exception=True):
-            fileutil.mkdirs(STATE_DIR, wdt=wdt)
-            configutil.save_config_json(COMM_STATE_PATH, cs)
-            _logger.info("State saved to %s: %s", COMM_STATE_PATH, cs)
+            save_comm_state(cs)
 
         with TimedStep("LTE disconnect and deinit"):
             lte_deinit(lte)
