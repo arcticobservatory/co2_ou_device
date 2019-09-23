@@ -363,6 +363,9 @@ def transmit_data(sync_dest, ou_id, cc, cs):
         elif dirtype == "pull_last_dir":
             updated = pull_last_dir(sync_dest, ou_id, cc, dirname, ss)
             got_updates = got_updates or updated
+            if got_updates:
+                _logger.info("transmit_data: Update received, returning early")
+                return got_updates
         else: _logger.warning("Unknown sync type for %s: %s", sdir, stype)
         _logger.info("ss[%s]: %s", dirname, ss)
 
@@ -417,6 +420,9 @@ def comm_sequence(hw):
             try:
                 with TimedStep("Transmit data to {}".format(sync_dest)):
                     got_updates = transmit_data(sync_dest, ou_id, cc, cs)
+                    if got_updates:
+                        _logger.info("comm_sequence: Update received, returning early")
+                        return lte, got_updates
             except Exception as e:
                 co2unit_errors.record_error(hw, e, "Error transmitting to {}".format(sync_dest))
 
