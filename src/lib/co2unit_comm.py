@@ -23,9 +23,9 @@ COMM_CONF_PATH = "conf/ou-comm-config.json"
 COMM_CONF_DEFAULTS = {
         "sync_dest": None,  # Expects URL like 'http://my_api_server.com:8080'
         "sync_dirs": [
-            ["data/readings", "push_sequential"],
-            ["errors", "push_sequential"],
             ["updates", "pull_last_dir"],
+            ["errors", "push_sequential"],
+            ["data/readings", "push_sequential"],
             ],
         "ntp_host": None,   # None will defer to library default (pool.ntp.org)
         "ntp_max_drift_secs": 4,
