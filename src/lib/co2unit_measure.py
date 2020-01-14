@@ -14,6 +14,14 @@ _logger = logging.getLogger("co2unit_measure")
 
 wdt = timeutil.DummyWdt()
 
+CO2_RAWS = [
+            explorir.FIELD_CO2_OUTPUT_FILTERED,
+            explorir.FIELD_LED_NORMALIZED_FILTERED,
+            explorir.FIELD_LED_SIGNAL_FILTERED,
+            explorir.FIELD_ZERO_POINT,
+            explorir.FIELD_SENSOR_TEMPERATURE_FILTERED,
+            ]
+
 def read_sensors(hw, flash_count=0):
 
     rtime = time.gmtime()
@@ -98,6 +106,13 @@ def read_sensors(hw, flash_count=0):
     # co2_ms did not propagate like the others, so get it again
     co2_ms = chrono.read_ms()
 
+    co2_raws = {field:None for field in CO2_RAWS}
+    try:
+        co2.select_fields(CO2_RAWS)
+        co2_raws = co2.read_fields()
+    except:
+        _logger.exception("Unexpected error reading co2 multi-fields")
+
     reading = {
             "rtime":    rtime,
             "co2":      co2_readings,
@@ -105,6 +120,7 @@ def read_sensors(hw, flash_count=0):
             "etemp":    etemp_reading,
             "etemp_ms": etemp_ms,
             "flash_count": flash_count,
+            "co2_raws": co2_raws,
             }
     return reading
 
@@ -115,14 +131,15 @@ def make_row(ou_id, reading):
     co2s = reading["co2"]
     etemp = reading["etemp"]
     flash_count = reading["flash_count"]
+    co2_raws = [reading["co2_raws"][field] for field in CO2_RAWS]
     row_arr = [
-            ou_id.hw_id,
-            ou_id.site_code,
-            dateval,
-            timeval,
-            etemp,
-            flash_count
-            ] + co2s
+                ou_id.hw_id,
+                ou_id.site_code,
+                dateval,
+                timeval,
+                etemp,
+                flash_count
+            ] + co2s + co2_raws
     return row_arr
 
 READING_FILE_MATCH = ("readings-", ".tsv")
