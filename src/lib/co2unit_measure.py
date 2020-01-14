@@ -55,7 +55,7 @@ def read_sensors(hw, flash_count=0):
     try:
         _logger.debug("Init CO2 sensor...")
         co2 = hw.co2
-        co2.set_mode(explorir.EXPLORIR_MODE_POLLING);
+        co2.set_mode(explorir.MODE_POLLING);
     except Exception as e:
         _logger.error("Unexpected error initializing CO2 sensor. %s: %s", type(e).__name__, e)
 

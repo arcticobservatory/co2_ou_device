@@ -2,9 +2,12 @@ from machine import UART
 import logging
 import time
 
-EXPLORIR_MODE_CMD = const(0)
-EXPLORIR_MODE_STREAMING = const(1)
-EXPLORIR_MODE_POLLING = const(2)
+TIMEOUT_MS=200
+READ_WAIT_MS=10
+
+MODE_CMD = const(0)
+MODE_STREAMING = const(1)
+MODE_POLLING = const(2)
 
 _logger = logging.getLogger("explorir")
 _logger.setLevel(logging.DEBUG)
@@ -16,7 +19,7 @@ class ExplorIr(object):
         self.uart = uart
         self._multiplier = None
 
-    def uart_read_lines(self, expect_output=True, timeout_ms=200, read_wait_ms=1):
+    def uart_read_lines(self, expect_output=True):
         """ Read from the UART buffer until there is nothing left to read
 
             Returns an array of lines read, decoded from ascii
@@ -38,9 +41,9 @@ class ExplorIr(object):
 
             elif expect_output and not output_started:
                 elapsed = time.ticks_diff(start_ticks, time.ticks_ms())
-                if elapsed > timeout_ms:
+                if elapsed > TIMEOUT_MS:
                     raise TimeoutError("Timeout waiting for output: %d ms" % elapsed)
-                time.sleep_ms(read_wait_ms)
+                time.sleep_ms(READ_WAIT_MS)
 
             else:
                 # Either not waiting for output, or output started and finished
@@ -49,13 +52,13 @@ class ExplorIr(object):
         return lines
 
 
-    def uart_cmd(self, cmd, expect_lines=1, expect_code=None, timeout_ms=200, read_wait_ms=1):
+    def uart_cmd(self, cmd, expect_lines=1, expect_code=None):
         """ Sends a command over the UART interface
 
             Returns array of response lines (if any)
         """
         # Flush previous output if any
-        flush = self.uart_read_lines(expect_output=False, timeout_ms=timeout_ms, read_wait_ms=read_wait_ms)
+        flush = self.uart_read_lines(expect_output=False)
         if flush:
             _logger.warning("Discarding earlier buffered output: %s", flush)
 
@@ -64,7 +67,7 @@ class ExplorIr(object):
         self.uart.write(cmd)
 
         # Read output
-        lines = self.uart_read_lines(expect_output=bool(expect_lines), timeout_ms=timeout_ms, read_wait_ms=read_wait_ms)
+        lines = self.uart_read_lines(expect_output=bool(expect_lines))
 
         # Check output
         if expect_lines and len(lines) != expect_lines:
@@ -86,8 +89,8 @@ class ExplorIr(object):
         else:
             return lines
 
-    def uart_cmd_return_int(self, cmd, expect_code=None, timeout_ms=200, read_wait_ms=1):
-        line = self.uart_cmd(cmd, expect_lines=1, expect_code=expect_code, timeout_ms=timeout_ms, read_wait_ms=read_wait_ms)[0]
+    def uart_cmd_return_int(self, cmd, expect_code=None):
+        line = self.uart_cmd(cmd, expect_lines=1, expect_code=expect_code)[0]
         try:
             val = int(line[3:8])
             return val

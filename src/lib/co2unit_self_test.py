@@ -207,7 +207,7 @@ def quick_test_hw(hw):
     with CheckStep(FLAG_CO2, suppress_exception=True):
         import explorir
         co2 = hw.co2
-        co2.set_mode(explorir.EXPLORIR_MODE_POLLING)
+        co2.set_mode(explorir.MODE_POLLING)
         reading = co2.read_co2()
         _logger.info("CO2 sensor ok. Current level: %d ppm", reading)
         wdt.feed()
