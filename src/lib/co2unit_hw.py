@@ -125,7 +125,7 @@ class Co2UnitHw(object):
             _logger.debug("Initializing co2 sensor")
             import explorir
             uart = UART(*self._co2_uart_params)
-            self._co2 = explorir.ExplorIr(uart, scale=10)
+            self._co2 = explorir.ExplorIr(uart)
         return self._co2
 
     @property
