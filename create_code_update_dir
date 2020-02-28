@@ -1,0 +1,41 @@
+#!/bin/bash
+
+if [[ $# -lt 3 ]]; then
+cat 1>&2 <<-END
+Usage: $0 from_version to_version dest_dir
+
+Prepares a downloadable code update from one version to another.
+
+Copies files that have changed between those two versions to the destination
+directory, in a subdirectory called 'flash'. The resulting directory can be
+queried and downloaded by a CO2 unit as an update.
+
+Place the dest_dir in the CO2 unit server's data directory:
+
+Naming pattern: remote_data/<UNIT_DIRECTORY>/updates/update-<SEQ>
+for example:    remote_data/co2unit-30aea42a4f60/updates/update-2020-02-27a
+
+Note that, while this script is in the git repo of the unit code, it does not
+rely on what version of the is checked out in the working directory. It also
+does not check out any version or otherwise change the checked-out version or
+the working directory.
+
+END
+    exit 1
+fi
+
+FROM_VERSION=$1;    shift;
+TO_VERSION=$1;      shift;
+DEST_DIR=$1;        shift;
+
+# Use git diff to list files that have changed between versions
+CHANGED_SRC_FILES="$(git diff --name-only $FROM_VERSION $TO_VERSION -- src/)"
+
+for FILE in $CHANGED_SRC_FILES; do
+    DEST_FILE="$DEST_DIR/flash/${FILE#src\/}"
+    echo 1>&2 -e "$FILE\t\t> $DEST_FILE"
+
+    mkdir -p $(dirname "$DEST_FILE")
+    # Fetch the file at the new version output it to the destination dir
+    git show "$TO_VERSION:$FILE" > "$DEST_FILE"
+done

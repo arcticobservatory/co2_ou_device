@@ -325,7 +325,7 @@ def pull_last_dir(sync_dest, ou_id, cc, dpath, ss):
     _logger.info("Fetching files to %s", tmp_dir)
     for fpath in fetch_paths:
         tmp_path = "/".join([tmp_dir,fpath])
-        if fileutil.isfile(tmp_path): break
+        if fileutil.isfile(tmp_path): continue
 
         path = "/ou/{id}/{rpath}/{fpath}".format(id=ou_id.hw_id, rpath=rpath, fpath=fpath)
         wdt.feed()
