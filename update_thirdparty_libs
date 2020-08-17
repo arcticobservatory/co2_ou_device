@@ -21,6 +21,33 @@ cat > src/lib/logging.py <<-END
 END
 cat thirdparty/micropython-lib/logging/logging.py >> src/lib/logging.py
 
+cat > src/lib/unittest.py <<-END
+# MicroPython reimplementation of Python's unittest library
+#
+# Copied unmodified from the micropython-lib repository
+#   (no code changes, only added this header)
+#   https://github.com/micropython/micropython-lib/blob/master/unittest/unittest.py
+#
+# Original library is MIT licensed, as noted in setup.py
+#   https://github.com/micropython/micropython-lib/blob/master/unittest/setup.py
+#
+
+END
+cat thirdparty/micropython-lib/unittest/unittest.py >> src/lib/unittest.py
+
+cat > src/lib/test_unittest.py <<-END
+# MicroPython reimplementation of Python's unittest library self-test code
+#
+# Copied unmodified from the micropython-lib repository
+#   (no code changes, only added this header)
+#   https://github.com/micropython/micropython-lib/blob/master/unittest/test_unittest.py
+#
+# Original library is MIT licensed, as noted in setup.py
+#   https://github.com/micropython/micropython-lib/blob/master/unittest/setup.py
+#
+
+END
+cat thirdparty/micropython-lib/unittest/test_unittest.py >> src/lib/test_unittest.py
 
 # From vanilla MicroPython
 # ==================================================

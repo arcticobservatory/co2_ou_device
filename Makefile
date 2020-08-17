@@ -1,7 +1,7 @@
-.PHONY: default clean connect reload load_py bytecode load_bytecode
-
 # Basic install direct from source
 # ==================================================
+
+.PHONY: default clean distclean connect reload load_py
 
 # Source Python files
 SRC_PY := $(wildcard src/*.py src/lib/*.py)
@@ -15,6 +15,9 @@ default:
 # Clean via git
 clean:
 	git clean -fXd ./
+
+distclean: clean
+	rm -rf .venv
 
 # Connect to the FiPy UART port with tio
 connect:
@@ -36,13 +39,21 @@ load_py:
 # and they seem to load faster.
 # You will also catch syntax errors on compilation.
 
+.PHONY: clean_bytecode bytecode load_bytecode
+
 # Target bytecode mpy files
 BYTECODE_MPY := $(patsubst src/%,target/bytecode/%,$(SRC_PY:.py=.mpy))
+# MicroPython does not look for 'main.mpy", so rename to 'main_bytecode.py'.
+BYTECODE_MPY := $(patsubst %/main.mpy,%/main_bytecode.mpy,$(BYTECODE_MPY))
+
+# $(info BYETCODE_MPY $(BYTECODE_MPY))		# debug output
 
 # The cross-compiler itself
 MPY_CROSS := thirdparty/pycom-micropython-sigfox/mpy-cross/mpy-cross
 
-clean:
+distclean: clean_bytecode
+
+clean_bytecode:
 	cd $(dir $(MPY_CROSS)) && make clean
 
 # Compile the cross compiler itself
@@ -50,21 +61,62 @@ $(MPY_CROSS):
 	cd $(dir $(MPY_CROSS)) && make
 
 # Generic rule to cross-compile individual files
-target/bytecode/%.mpy: src/%.py | $(MPY_CROSS)
+target/bytecode/%.mpy: src/%.py $(MPY_CROSS)
 	$(MPY_CROSS) $< && mkdir -p $(@D) && mv $(<:.py=.mpy) $@
 
-# MicroPython does not look for 'main.mpy",
-# so rename to 'main_bytecode.py'
-# and create a main.py that simply imports it
-target/bytecode/main_bytecode.mpy: target/bytecode/main.mpy | $(MPY_CROSS)
+# MicroPython does not look for 'main.mpy", so rename to 'main_bytecode.py'
+.INTERMEDIATE: target/bytecode/main.mpy
+target/bytecode/main_bytecode.mpy: target/bytecode/main.mpy
 	mv $< $@
 
+# Also create a plain 'main.py' that simply imports 'main_bytecode'
 target/bytecode/main.py:
 	echo "import main_bytecode" > $@
 
 # All bytecode files
-bytecode: $(BYTECODE_MPY) target/bytecode/main_bytecode.mpy target/bytecode/main.py
+bytecode: $(BYTECODE_MPY) target/bytecode/main.py
 
 # Load byetcode files onto FiPy
 load_bytecode: bytecode
 	./ampy_load_src $(PORT) target/bytecode/
+
+# MicroPython Unix port for unit testing
+# ==================================================
+#
+# Note. I cannot seem to get the Unix port to compile in the Pycom fork,
+# so here we use the vanilla MicroPython fork.
+
+.PHONY: clean_unix unix_port unix_repl unittest
+
+# The Unix port fork's cross-compiler
+UNIX_MPY_CROSS := thirdparty/micropython/mpy-cross/mpy-cross
+# The Unix port itself
+UNIX_MICROPYTHON := thirdparty/micropython/unix/micropython
+
+# Lib directories when running the Unix port
+export MICROPYPATH=src/:src/lib
+
+distclean: clean_unix
+
+clean_unix:
+	cd $(dir $(UNIX_MPY_CROSS)) && make clean
+	cd $(dir $(UNIX_MICROPYTHON)) && make clean
+
+# Build mpy-cross in the Unix port's root dir
+$(UNIX_MPY_CROSS):
+	cd $(@D) && make
+
+# Build the Unix port itself
+$(UNIX_MICROPYTHON): $(UNIX_MPY_CROSS)
+	cd $(@D) && make axtls && make CWARN=
+
+# Build the Unix port
+unix_port: $(UNIX_MICROPYTHON)
+
+# Run the Unix REPL
+unix_repl: unix_port
+	$(UNIX_MICROPYTHON)
+
+# Run all unit tests in Python sys.path
+unittest: unix_port
+	$(UNIX_MICROPYTHON) -m test_all
