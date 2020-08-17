@@ -1,3 +1,5 @@
 *.conf
 .venv
 .last_load_marker
+*.mpy
+target/
