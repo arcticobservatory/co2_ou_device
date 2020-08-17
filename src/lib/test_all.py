@@ -7,12 +7,18 @@ import uos
 
 import unittest
 
+def listdir(path):
+    if hasattr(uos, "listdir"):
+        return uos.listdir(path)
+    elif hasattr(uos, "ilistdir"):
+        return [entry[0] for entry in uos.ilistdir(path)]
+    else:
+        raise Exception("Don't know how to listdir in this uos")
+
 def find_test_modules(pathdir):
-    for entry in uos.ilistdir(pathdir):
-        ename = entry[0]
-        fullname = pathdir + "/" + ename
-        if ename.startswith("test_") and ename.endswith(".py"):
-            modname = ename.replace(".py", "")
+    for ename in listdir(pathdir):
+        if ename.startswith("test_") and (ename.endswith(".py") or ename.endswith(".mpy")):
+            modname = ename.replace(".py", "").replace(".mpy", "")
             yield modname
 
 def test_cases(m):
@@ -25,7 +31,8 @@ def test_cases(m):
         if isinstance(c, object) and isinstance(c, type) and issubclass(c, unittest.TestCase):
             yield c
 
-def run_all_tests_in_dirs(pathdirs):
+def main(pathdirs=[]):
+    pathdirs = massage_args(pathdirs)
     suite = unittest.TestSuite()
     for pathdir in pathdirs:
         for modname in find_test_modules(pathdir):
@@ -53,5 +60,5 @@ class TestTestAll(unittest.TestCase):
         self.assertEqual(massage_args(), sys.path)
 
 if __name__ == "__main__":
-    result = run_all_tests_in_dirs(massage_args(sys.argv[1:]))
+    result = main(sys.argv[1:])
     sys.exit(result.failuresNum > 0)
