@@ -1,7 +1,7 @@
 # Basic install direct from source
 # ==================================================
 
-.PHONY: default clean distclean connect reload load_py
+.PHONY: default clean distclean load_py reload dev_connect dev_reset_wdt dev_reflash
 
 # Source Python files
 SRC_PY := $(wildcard src/*.py src/lib/*.py)
@@ -19,17 +19,30 @@ clean:
 distclean: clean
 	rm -rf .venv
 
-# Connect to the FiPy UART port with tio
-connect:
-	tio $(PORT)
+# A virtualenv for Python, especially the ampy tool to talk to the FiPy
+.venv:
+	virtualenv .venv --python=python3
+	. .venv/bin/activate && pip install adafruit-ampy
+
+# Load sources onto the FiPy
+load_py: | .venv
+	./ampy_load_src $(PORT) src/
 
 # Reload all sources
 reload:
 	rm -f .last_load_marker
 
-# Load sources onto the FiPy
-load_py:
-	./ampy_load_src $(PORT) src/
+# Connect to the FiPy UART port with tio
+dev_connect:
+	tio $(PORT)
+
+# Reset watchdog timer on device
+dev_reset_wdt: | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/reset_wdt.py
+
+# Reflash device
+dev_reflash: dev_reset_wdt | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/reformat_flash.py && rm -f .last_load_marker
 
 # Precompile bytecode
 # ==================================================
@@ -120,3 +133,7 @@ unix_repl: unix_port
 # Run all unit tests in Python sys.path
 unittest: unix_port
 	$(UNIX_MICROPYTHON) -m test_all
+
+# Run unit tests on device
+dev_unittest: dev_reset_wdt | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/run_unit_tests.py
