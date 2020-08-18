@@ -1,13 +1,8 @@
 # Simple NTP client implementation
 #
-# Forked from the original MicroPython source
+# Copied unmodified from the original MicroPython source
+#   (no code changes, only added this header)
 #   https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
-#
-# This fork adds a host parameter to time()
-#   https://github.com/arcticobservatory/micropython/blob/ntp_host_param/ports/esp8266/modules/ntptime.py
-#
-# Submitted upstream as pull request #5122
-#   https://github.com/micropython/micropython/pull/5122
 #
 # Original library is MIT licensed
 # https://github.com/micropython/micropython/blob/master/LICENSE
@@ -25,11 +20,9 @@ except:
 # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
 NTP_DELTA = 3155673600
 
-DEFAULT_HOST = "pool.ntp.org"
+host = "pool.ntp.org"
 
-def time(host=None):
-    if host==None:
-        host = DEFAULT_HOST
+def time():
     NTP_QUERY = bytearray(48)
     NTP_QUERY[0] = 0x1b
     addr = socket.getaddrinfo(host, 123)[0][-1]
@@ -50,3 +43,4 @@ def settime():
     tm = utime.localtime(t)
     tm = tm[0:3] + (0,) + tm[3:6] + (0,)
     machine.RTC().datetime(tm)
+    print(utime.localtime())

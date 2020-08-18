@@ -52,28 +52,19 @@ cat thirdparty/micropython-lib/unittest/test_unittest.py >> src/lib/test_unittes
 # From vanilla MicroPython
 # ==================================================
 
-# TODO: If pull request is accepted, change submodule url back to original
-#   https://github.com/micropython/micropython.git
-#
-
 cat > src/lib/ntptime.py <<-END
 # Simple NTP client implementation
 #
-# Forked from the original MicroPython source
+# Copied unmodified from the original MicroPython source
+#   (no code changes, only added this header)
 #   https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
-#
-# This fork adds a host parameter to time()
-#   https://github.com/arcticobservatory/micropython/blob/ntp_host_param/ports/esp8266/modules/ntptime.py
-#
-# Submitted upstream as pull request #5122
-#   https://github.com/micropython/micropython/pull/5122
 #
 # Original library is MIT licensed
 # https://github.com/micropython/micropython/blob/master/LICENSE
 #
 
 END
-(cd thirdparty/micropython/ && git show ntp_host_param:ports/esp8266/modules/ntptime.py) >> src/lib/ntptime.py
+cat thirdparty/micropython/esp8266/scripts/ntptime.py >> src/lib/ntptime.py
 
 
 # From Pycom
