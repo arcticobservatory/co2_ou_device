@@ -73,7 +73,7 @@ cat > src/lib/ntptime.py <<-END
 #
 
 END
-cat thirdparty/micropython/ports/esp8266/modules/ntptime.py >> src/lib/ntptime.py
+(cd thirdparty/micropython/ && git show ntp_host_param:ports/esp8266/modules/ntptime.py) >> src/lib/ntptime.py
 
 
 # From Pycom
