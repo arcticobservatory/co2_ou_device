@@ -1,7 +1,9 @@
 # Basic install direct from source
 # ==================================================
 
-.PHONY: default clean distclean load_py reload dev_connect dev_reset_wdt dev_reflash
+.PHONY: default clean distclean load_py reload dev_connect \
+    dev_reset_wdt dev_erase_flash_fs \
+    dev_lte_firmware_info dev_lte_firmware_update
 
 # Source Python files
 SRC_PY := $(wildcard src/*.py src/lib/*.py)
@@ -32,7 +34,9 @@ load_py: | .venv
 reload:
 	rm -f .last_load_marker
 
-# Connect to the FiPy UART port with tio
+# Connect to the FiPy UART port with tio.
+# Will go into an interactive mode and never exit.
+# Cannot be used in scripts.
 dev_connect:
 	tio $(PORT)
 
@@ -41,8 +45,18 @@ dev_reset_wdt: | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/reset_wdt.py
 
 # Reflash device
-dev_reflash: dev_reset_wdt | .venv
+dev_erase_flash_fs: dev_reset_wdt | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/reformat_flash.py && rm -f .last_load_marker
+
+dev_lte_firmware_info: dev_reset_wdt | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/lte_firmware_info.py
+
+# Update modem firmware. Requires firmware to be present on SD card.
+# Will go into an interactive mode and never exit.
+# Cannot be used in scripts.
+dev_lte_firmware_update: dev_reset_wdt dev_lte_firmware_info | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run --no-output on_device_scripts/lte_firmware_update.py
+	tio $(PORT)
 
 # Precompile bytecode
 # ==================================================
