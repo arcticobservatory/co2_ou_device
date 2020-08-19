@@ -84,11 +84,11 @@ class Co2UnitHw(object):
         if not self._sdcard:
             _logger.debug("Initializing SD card")
             import pycom_util
-            import sdcard_wrapper
+            import sdcard
             self._spi = pycom_util.SpiWrapper()
             self._spi.init(SPI.MASTER)
             try:
-                self._sdcard = sdcard_wrapper.SdCardWrapper(self._spi, pycom_util.PinWrapper(self._sd_cs_pin_name))
+                self._sdcard = sdcard.SDCard(self._spi, machine.Pin(self._sd_cs_pin_name))
             except OSError as e:
                 if "no sd card" in str(e).lower():
                     raise NoSdCardError(e)

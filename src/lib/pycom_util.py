@@ -95,20 +95,3 @@ class SpiWrapper(machine.SPI):
 
     def readinto(self, buf, token):
         return super().readinto(buf, write=token)
-
-class PinWrapper(machine.Pin):
-    """
-    Wrap the Pin class for compatibility with the SDCard driver
-
-    The SDCard driver sets pins with methods .high() and .low().
-
-    The Pycom firmware's Pin class does not support this. The object itself is
-    callable and accepts a value. This class translates the SDCard calling
-    style to one the Pycom Pin class understands.
-    """
-
-    def high(self):
-        return self(1)
-
-    def low(self):
-        return self(0)

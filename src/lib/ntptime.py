@@ -2,7 +2,7 @@
 #
 # Copied unmodified from the original MicroPython source
 #   (no code changes, only added this header)
-#   https://github.com/micropython/micropython/blob/master/ports/esp8266/modules/ntptime.py
+#   https://github.com/micropython/micropython/blob/master/ports/esp32/modules/ntptime.py
 #
 # Original library is MIT licensed
 # https://github.com/micropython/micropython/blob/master/LICENSE
