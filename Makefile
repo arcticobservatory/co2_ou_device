@@ -84,7 +84,7 @@ clean_bytecode:
 	cd $(dir $(MPY_CROSS)) && make clean
 
 # Compile the cross compiler itself
-$(MPY_CROSS):
+$(MPY_CROSS): $(wildcard $(dir $(MPY_CROSS))/*.c)
 	cd $(dir $(MPY_CROSS)) && make
 
 # Generic rule to cross-compile individual files
@@ -130,11 +130,11 @@ clean_unix:
 	cd $(dir $(UNIX_MICROPYTHON)) && make clean
 
 # Build mpy-cross in the Unix port's root dir
-$(UNIX_MPY_CROSS):
+$(UNIX_MPY_CROSS): $(wildcard $(dir $(UNIX_MPY_CROSS))/*.c)
 	cd $(@D) && make
 
 # Build the Unix port itself
-$(UNIX_MICROPYTHON): $(UNIX_MPY_CROSS)
+$(UNIX_MICROPYTHON): $(UNIX_MPY_CROSS) $(wildcard $(dir $(UNIX_MICROPYTHON))/*.c)
 	cd $(@D) && make axtls && make CWARN=
 
 # Build the Unix port
