@@ -25,7 +25,12 @@ print("Mounting SD card...")
 
 # Mount SD card on co2unit
 import co2unit_hw
+import time
 hw = co2unit_hw.Co2UnitHw()
+hw.power_peripherals(True)
+# Trying to access the SD card too quickly often results in IO errors
+print("Giving hardware a moment after power on")
+time.sleep_ms(100)
 hw.mount_sd_card()
 
 # Mount SD card in PyMakr or similar, using default SPI bus
