@@ -42,7 +42,7 @@ except OSError:
 
 print("Firmware found:", duppath, stat)
 print()
-print("Performing upgrade...", flush=True)
+print("Performing upgrade...")
 print()
 os.chdir(fw_dir)
 sqnsupgrade.run(dupname, updatername, debug=True)
