@@ -46,7 +46,10 @@ dev_reset_wdt: | .venv
 
 # Reflash device
 dev_erase_flash_fs: dev_reset_wdt | .venv
-	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/reformat_flash.py && rm -f .last_load_marker
+	. .venv/bin/activate \
+	    && ampy --port $(PORT) run on_device_scripts/reformat_flash.py \
+	    && ampy --port $(PORT) reset && echo "Device reset" \
+	    && rm -f .last_load_marker
 
 dev_lte_firmware_info: dev_reset_wdt | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/lte_firmware_info.py
