@@ -118,7 +118,7 @@ load_bytecode: bytecode
 # The Unix port fork's cross-compiler
 UNIX_MPY_CROSS := thirdparty/micropython/mpy-cross/mpy-cross
 # The Unix port itself
-UNIX_MICROPYTHON := thirdparty/micropython/unix/micropython
+UNIX_MICROPYTHON := thirdparty/micropython/ports/unix/micropython
 
 # Lib directories when running the Unix port
 export MICROPYPATH=src/:src/lib

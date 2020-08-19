@@ -194,7 +194,7 @@ def quick_test_hw(hw):
         mountpoint = "/co2_sd_card_test"
         os.mount(hw.sdcard, mountpoint)
         contents = os.listdir(mountpoint)
-        os.unmount(mountpoint)
+        os.umount(mountpoint)
         _logger.info("SD card OK. Contents: %s", contents)
         wdt.feed()
 

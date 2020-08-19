@@ -39,7 +39,7 @@ def mkdirs(path, wdt=None):
             created += [curpath]
             _logger.info("Created %s", curpath)
         except OSError as e:
-            if "file exists" in str(e):
+            if "file exists" in str(e) or "EEXIST" in str(e):
                 _logger.debug("Exists  %s", curpath)
             else: raise e
 

@@ -117,7 +117,7 @@ class Co2UnitHw(object):
         else:
             pins = [self._flash_pin_name]
             _logger.info("Setting wakeup on %s", pins)
-            machine.pin_deepsleep_wakeup(pins=pins, mode=machine.WAKEUP_ANY_HIGH)
+            machine.pin_sleep_wakeup(pins=pins, mode=machine.WAKEUP_ANY_HIGH)
 
     @property
     def co2(self):
@@ -207,9 +207,9 @@ class Co2UnitHw(object):
         if self.sd_mounted:
             _logger.info("Unmounting SD card")
             try:
-                os.unmount(self.SDCARD_MOUNT_POINT)
+                os.umount(self.SDCARD_MOUNT_POINT)
             except:
-                _logger.exception("Could not mount SD card")
+                _logger.exception("Could not unmount SD card")
 
         try:
             self.power_peripherals(False)
