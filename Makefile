@@ -126,6 +126,8 @@ UNIX_MICROPYTHON := thirdparty/micropython/ports/unix/micropython
 # Lib directories when running the Unix port
 export MICROPYPATH=src/:src/lib
 
+default: unittest
+
 distclean: clean_unix
 
 clean_unix:
