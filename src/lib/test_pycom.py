@@ -5,6 +5,10 @@ try:
 except:
     import dummy_pycom as pycom
 
+import logging
+_logger = logging.getLogger("dummy_pycom")
+_logger.setLevel(logging.CRITICAL)
+
 class TestPycomNvRam(unittest.TestCase):
 
     def test_pycom_nv_behavior(self):

@@ -3,8 +3,8 @@ import logging
 from co2unit_main2 import *
 
 _logger = logging.getLogger("reactor")
-#_logger.setLevel(logging.CRITICAL)
-#_logger.exception = lambda *args: None
+_logger.setLevel(logging.CRITICAL)
+_logger.exception = lambda *args: None
 
 class TestContextManater(unittest.TestCase):
 
