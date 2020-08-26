@@ -13,6 +13,8 @@ _logger.setLevel(logging.CRITICAL)
 _logger.exception = lambda *args: None
 _logger.exc = lambda *args: None
 
+logging.getLogger("mock_apis").setLevel(logging.CRITICAL)
+
 class TestMainWrapper(unittest.TestCase):
 
     def test_normal_exit(self):
@@ -56,85 +58,63 @@ class TestMainWrapper(unittest.TestCase):
         self.assertEqual(main.wdt._init_count, 2)
         self.assertEqual(main.wdt._init_timeout_ms, REPL_WDT_MS)
 
-class TestReactor(unittest.TestCase):
 
-    def test_run_step(self):
+class TestTaskRunner(unittest.TestCase):
+
+    def test_run_task(self):
+        class MockTask(object):
+            def __init__(self): self._was_run = False
+            def run(self, **kwargs): self._was_run = True
+
+        task = MockTask()
+
+        runner = TaskRunner(mock_apis.MockWdt(0))
+        runner.run(task)
+        self.assertTrue(task._was_run)
+        self.assertNotEqual(runner.wdt._feed_count, 0, "WDT should have been fed")
+
+    def test_accept_task_class(self):
         side_effect = {"was_run": False}
-        class DummyStep(RunStep):
-            def run(self):
-                side_effect['was_run'] = True
+        class TaskClass(object):
+            def run(self, **kwargs):
+                side_effect["was_run"] = True
 
-        reactor = RunReactor()
-        reactor._run_step(DummyStep)
-        self.assertTrue(side_effect['was_run'],
-                "Run method should have been called")
+        runner = TaskRunner(mock_apis.MockWdt(0))
+        runner.run(TaskClass)
+        self.assertTrue(side_effect["was_run"])
 
-    def test_run_step_error(self):
-        class TestException(Exception): pass
-        class ThrowStep(RunStep):
-            def run(self):
-                raise TestException("Whoopsie!")
+    def test_error_in_context_manager(self):
+        class BodyException(Exception): pass
+        class ExitException(Exception): pass
+        class BadManager(object):
+            def __enter__(self):
+                pass
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                raise ExitException()
 
-        reactor = RunReactor()
+        with self.assertRaises(ExitException):
+            with BadManager():
+                raise BodyException()
+
+    def test_suppress_error(self):
+        class MockException(Exception): pass
+        exc_val = MockException()
+
+        class ErrorTask(object):
+            def run(self, **kwargs):
+                raise exc_val
+        task = ErrorTask()
+
+        runner = TaskRunner(mock_apis.MockWdt(0))
         try:
-            reactor._run_step(ThrowStep)
-        except TestException as e:
-            self.fail("Run procedure should not allow exceptions to escape. Raised %s: %s" % (type(e).__name__, e))
+            runner.run(task)
+        except MockException:
+            self.fail("MockException was allowed to pass through")
+        self.assertEqual(runner.history, [(task, exc_val)])
 
-        class KeyboardStep(RunStep):
-            def run(self):
+        class KeyboardTask(object):
+            def run(self, **kwargs):
                 raise KeyboardInterrupt()
 
         with self.assertRaises(KeyboardInterrupt):
-            reactor._run_step(KeyboardStep)
-
-    def test_resolve(self):
-        class A(RunStep): pass
-        class B(RunStep): deps = [A]
-        class C(RunStep): deps = [A,B]
-
-        reactor = RunReactor()
-        reactor.push_step(C)
-        self.assertEqual(reactor.queue, [A,B,C])
-
-    def test_resolve_circular(self):
-        class A(RunStep): pass
-        class B(RunStep): deps = [A]
-        class C(RunStep): deps = [A,B]
-
-        A.deps = [B]
-
-        reactor = RunReactor()
-
-        with self.assertRaises(AssertionError):
-            reactor.push_step(C)
-
-    def test_record_run(self):
-        class OkStep(RunStep): pass
-
-        reactor = RunReactor()
-        reactor.push_step(OkStep)
-        reactor.run_next()
-        self.assertEqual(reactor.history, [OkStep])
-
-    def test_record_fail(self):
-        class FailStep(RunStep):
-            def run(self):
-                raise Exception("this step always fails")
-
-        reactor = RunReactor()
-        reactor.push_step(FailStep)
-        reactor.run_next()
-        self.assertEqual(reactor.history, [FailStep])
-        self.assertIn(FailStep, reactor.failed)
-
-    def test_step_can_queue(self):
-        class A(RunStep):
-            def run(self):
-                return [B]
-        class B(RunStep): pass
-
-        reactor = RunReactor()
-        reactor.push_step(A)
-        reactor.run_next()
-        self.assertEqual(reactor.queue, [B])
+            runner.run(KeyboardTask)
