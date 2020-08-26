@@ -71,10 +71,13 @@ dev_lte_firmware_update: dev_reset_wdt dev_lte_firmware_info | .venv
 
 .PHONY: clean_bytecode bytecode load_bytecode
 
+# main.py must remain uncompiled because it is special
+#
+# - MicroPython does not recognize main.mpy
+# - Variables declared in main.py are present on the REPL
+TO_COMPILE := $(filter-out src/main.py,$(SRC_PY))
 # Target bytecode mpy files
-BYTECODE_MPY := $(patsubst src/%,target/bytecode/%,$(SRC_PY:.py=.mpy))
-# MicroPython does not look for 'main.mpy", so rename to 'main_bytecode.py'.
-BYTECODE_MPY := $(patsubst %/main.mpy,%/main_bytecode.mpy,$(BYTECODE_MPY))
+BYTECODE_MPY := $(patsubst src/%,target/bytecode/%,$(TO_COMPILE:.py=.mpy))
 
 # $(info BYETCODE_MPY $(BYTECODE_MPY))		# debug output
 
@@ -94,20 +97,16 @@ $(MPY_CROSS): $(wildcard $(dir $(MPY_CROSS))/*.c)
 target/bytecode/%.mpy: src/%.py $(MPY_CROSS)
 	$(MPY_CROSS) $< && mkdir -p $(@D) && mv $(<:.py=.mpy) $@
 
-# MicroPython does not look for 'main.mpy", so rename to 'main_bytecode.py'
+# Just copy main.py directly
 .INTERMEDIATE: target/bytecode/main.mpy
-target/bytecode/main_bytecode.mpy: target/bytecode/main.mpy
-	mv $< $@
-
-# Also create a plain 'main.py' that simply imports 'main_bytecode'
-target/bytecode/main.py:
-	echo "import main_bytecode" > $@
+target/bytecode/main.py: src/main.py
+	cp $< $@
 
 # All bytecode files
 bytecode: $(BYTECODE_MPY) target/bytecode/main.py
 
 # Load byetcode files onto FiPy
-load_bytecode: bytecode
+load_bytecode: dev_reset_wdt bytecode
 	./ampy_load_src $(PORT) target/bytecode/
 
 # MicroPython Unix port for unit testing
