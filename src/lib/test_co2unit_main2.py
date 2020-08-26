@@ -1,27 +1,60 @@
+import sys
+
 import unittest
 import logging
+
+import mock_apis
+
 from co2unit_main2 import *
 
-_logger = logging.getLogger("reactor")
+# Suppress logging
+_logger = logging.getLogger("main")
 _logger.setLevel(logging.CRITICAL)
 _logger.exception = lambda *args: None
+_logger.exc = lambda *args: None
 
-class TestContextManater(unittest.TestCase):
+class TestMainWrapper(unittest.TestCase):
 
-    def test_binding_context_manager(self):
+    def test_normal_exit(self):
+        mock_machine = mock_apis.MockMachine()
+        mock_sys = mock_apis.MockSys()
+        with MainWrapper(machine_api=mock_machine, sys_api=mock_sys):
+            pass
+        self.assertTrue(mock_machine._deepsleep_called)
+        self.assertEqual(mock_machine._deepsleep_time_ms, LAST_RESORT_DEEPSLEEP_MS)
 
-        class TrialManager(object):
-            def __init__(self, param):
-                self.param = param
+    def test_exception_exit(self):
+        mock_machine = mock_apis.MockMachine()
+        mock_sys = mock_apis.MockSys()
+        class TestException(Exception):
+            pass
+        with self.assertRaises(TestException):
+            with MainWrapper(machine_api=mock_machine, sys_api=mock_sys):
+                raise TestException()
+        self.assertTrue(mock_machine._deepsleep_called)
+        self.assertEqual(mock_machine._deepsleep_time_ms, LAST_RESORT_DEEPSLEEP_MS)
 
-            def __enter__(self):
-                return self
+    def test_keyboard_interrupt(self):
+        mock_machine = mock_apis.MockMachine()
+        mock_sys = mock_apis.MockSys()
+        with self.assertRaises(KeyboardInterrupt):
+            with MainWrapper(machine_api=mock_machine, sys_api=mock_sys):
+                raise KeyboardInterrupt()
+        self.assertFalse(mock_machine._deepsleep_called)
+        self.assertTrue(mock_sys._exit_called)
 
-            def __exit__(self, exc_type, exc_val, exc_tb):
-                return False
+    def test_wdt_control(self):
+        mock_machine = mock_apis.MockMachine()
+        mock_sys = mock_apis.MockSys()
 
-        with TrialManager("passed-in string") as bound:
-            self.assertEqual(bound.param, "passed-in string")
+        with self.assertRaises(KeyboardInterrupt):
+            with MainWrapper(machine_api=mock_machine, sys_api=mock_sys) as main:
+                self.assertEqual(main.wdt._init_count, 1)
+                self.assertEqual(main.wdt._init_timeout_ms, RUNNING_WDT_MS)
+                raise KeyboardInterrupt()
+
+        self.assertEqual(main.wdt._init_count, 2)
+        self.assertEqual(main.wdt._init_timeout_ms, REPL_WDT_MS)
 
 class TestReactor(unittest.TestCase):
 
