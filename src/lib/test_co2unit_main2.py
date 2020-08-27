@@ -148,6 +148,16 @@ class TestTaskRunner(unittest.TestCase):
         runner.run(returnlist, last_task)
         self.assertEqual(runner.history, [returnlist,nexta,nextb,last_task])
 
+class TestPycomNvsWithDefault(unittest.TestCase):
+    def setUp(self):
+        main.pycom = mock_apis.MockPycom()
+
+    def test_nvs_with_default(self):
+        main.pycom.nvs_set("test_nvs_key_asdf", 123)
+        main.pycom.nvs_erase("test_nvs_key_asdf")
+        val = main.nvs_get_default("test_nvs_key_asdf", 456)
+        self.assertEqual(val, 456)
+
 class TestCheckSchedule(unittest.TestCase):
 
     def test_no_task(self):
@@ -200,3 +210,14 @@ class TestSleepUntilScheduled(unittest.TestCase):
         self.assertTrue(main.hw._prepare_for_shutdown_called, True)
         self.assertTrue(main.machine._deepsleep_called)
         self.assertEqual(main.machine._deepsleep_time_ms, 1305000)
+
+    def test_sleep_if_hw_not_initialized(self):
+        main.hw = None
+
+        sleep_until = main.SleepUntilScheduled()
+        sleep_until.runwith(
+                tt=timeutil.parse_time("2020-08-27 07:38:15"),
+                sched_cfg=[
+                        ["TakeMeasurement", 'minutes', 30, 0],
+                        ["Communicate", 'daily', 3, 15],
+                    ])

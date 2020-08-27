@@ -22,6 +22,12 @@ class NoopWdt(object):
 
 wdt = NoopWdt()
 
+def nvs_get_default(key, default=None):
+    try:
+        return pycom.nvs_get(key)
+    except ValueError:
+        return default
+
 class MainWrapper(object):
     """ Top-level run behavior
 
@@ -98,11 +104,13 @@ class BootUp(object):
             #return [InitPeripherals, LteTest]
             return [InitPeripherals,
                     QuickSelfTest, LteTest,
-                    Communicate, CheckForUpdates,
-                    SleepUntilScheduled]
-        else:
-            return [InitPeripherals, CheckForUpdates,
-                    CheckSchedule, SleepUntilScheduled]
+                    Communicate, CheckForUpdates]
+
+        elif reset_cause == machine.WDT_RESET:
+            return [CrashRecovery]
+
+        elif reset_cause == machine.DEEPSLEEP_RESET:
+            return [InitPeripherals, CheckForUpdates, CheckSchedule]
 
 hw = None
 
@@ -118,6 +126,43 @@ class InitPeripherals(object):
         # Trying to access the SD card too quickly often results in IO errors
         _logger.info("Giving hardware a moment after power on")
         time.sleep_ms(100)
+
+class CrashRecovery(object):
+    def run(self):
+        entrycount = nvs_get_default("crash_recover_count", 0)
+        entrycount += 1
+        pycom.nvs_set("crash_recover_count", entrycount)
+
+        _logger.info("This is recovery attempt %s", entrycount)
+
+        if entrycount > 5:
+            _logger.error("Too many recovery attempts (%s). Giving up.", entrycount)
+            return
+
+        try:
+            import co2unit_errors
+            co2unit_errors.warning(hw, "Running recovery procedure (attempt %s). Watchdog reset?")
+        except Exception as e:
+            _logger.exc(e, "Could not log warning")
+
+        try:
+            _logger.info("Making sure LTE modem is off")
+
+            # LTE init seems to be successful more often if we give it time first
+            time.sleep_ms(1000)
+
+            import network
+            _logger.info("Initializing LTE just to get handle...")
+            lte = network.LTE()
+            wdt.feed()
+            _logger.info("Deinit...")
+            lte.deinit()
+            wdt.feed()
+            _logger.info("LTE off")
+        except Exception as e:
+            _logger.exc(e, "Could not turn off LTE modem")
+
+        pycom.nvs_set("crash_recover_count", 0)
 
 # Self Tests
 # --------------------------------------------------
@@ -144,10 +189,7 @@ class LteTest(object):
 
 class TakeMeasurement(object):
     def run(self):
-        try:
-            flash_count = pycom.nvs_get("co2_flash_count")
-        except ValueError:
-            return 0
+        flash_count = nvs_get_default("co2_flash_count", 0)
 
         import co2unit_measure
         co2unit_measure.wdt = wdt
@@ -165,8 +207,17 @@ class Communicate(object):
 # Updates
 # --------------------------------------------------
 
+def set_persistent_settings():
+    _logger.info("Setting persistent settings...")
+    pycom.wifi_on_boot(False)
+    pycom.lte_modem_en_on_boot(False)
+    pycom.heartbeat_on_boot(False)
+    pycom.wdt_on_boot(True)
+    pycom.wdt_on_boot_timeout(RUNNING_WDT_MS)
+
 class CheckForUpdates(object):
     def run(self):
+        set_persistent_settings()
         import co2unit_update
         co2unit_update.wdt = wdt
         updated = co2unit_update.update_sequence(hw)
@@ -181,8 +232,8 @@ SCHEDULE_PATH = "conf/schedule.json"
 SCHEDULE_DEFAULT = [
             #["TakeMeasurement", 'minutes', 30, 0],
             #["Communicate", 'daily', 3, 15],
-            ["TakeMeasurement", 'minutes', 5, 0],
-            ["Communicate", 'minutes', 10, 2],
+            ["TakeMeasurement", 'minutes', 10, 0],
+            ["Communicate", 'minutes', 30, 2],
             ]
 
 TASK_STRS = {
@@ -236,8 +287,9 @@ class SleepUntilScheduled(object):
         next_tt, task = agenda[0]
         secs = timeutil.mktime(next_tt) - timeutil.mktime(tt)
 
-        _logger.info("Preparing for shutdown")
-        hw.prepare_for_shutdown()
+        if hw:
+            _logger.info("Preparing for shutdown")
+            hw.prepare_for_shutdown()
 
         _logger.info("Sleeping %d seconds until %s", secs, task)
         machine.deepsleep(secs * 1000)

@@ -26,5 +26,5 @@ import co2unit_main2 as main
 with main.MainWrapper():
 
     runner = main.TaskRunner()
-    runner.run(main.BootUp)
+    runner.run(main.BootUp, main.SleepUntilScheduled)
     raise KeyboardInterrupt()
