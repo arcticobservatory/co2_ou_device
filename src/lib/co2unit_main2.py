@@ -71,15 +71,15 @@ class TaskRunner(object):
 
         instance = task() if isinstance(task, type) else task
         result = None
-        _logger.info("Task %s START", instance)
+        _logger.info("=== Task %s START ===", instance)
         try:
             result = instance.run()
-            _logger.info("Task %s OK", instance)
+            _logger.info("=== Task %s OK ===", instance)
             self.history.append(instance)
         except KeyboardInterrupt:
             raise
         except:
-            _logger.exception("Task %s FAIL", instance)
+            _logger.exception("=== Task %s FAIL ===", instance)
 
         if result:
             result = [result] if not isinstance(result, list) else result
