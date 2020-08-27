@@ -1,6 +1,8 @@
 import logging
 _logger = logging.getLogger("mock_apis")
 
+import sys as real_sys
+
 class MockSys(object):
     def __init__(self):
         self._exit_called = False
@@ -9,10 +11,13 @@ class MockSys(object):
         _logger.info("sys.exit(%s)", exit_code)
         self._exit_called = True
 
+    def exc_info(self):
+        return real_sys.exc_info()
+
 class MockWdt(object):
-    def __init__(self, timeout):
+    def __init__(self, id=0, timeout=None):
         self._init_count = 1
-        self._init_timeout_ms = timeout
+        self._init_timeout_ms = int(timeout)
         self._feed_count = 0
 
     def init(self, timeout):
@@ -51,3 +56,11 @@ class MockPycom(object):
 
     def nvs_erase(self, key):
         del(self._nvram[key])
+
+
+class MockCo2UnitHw(object):
+    def __init__(self):
+        self._prepare_for_shutdown_called = False
+
+    def prepare_for_shutdown(self):
+        self._prepare_for_shutdown_called = True

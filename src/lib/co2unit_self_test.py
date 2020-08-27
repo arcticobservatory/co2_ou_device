@@ -160,7 +160,7 @@ class CheckStep(object):
         if exc_type:
             failures |= self.flag
             _logger.warning(" %s %s failed (%d ms). %s: %s", self.flag_hex, self.flag_name, elapsed, exc_type, exc_value)
-            if self.suppress_exception:
+            if self.suppress_exception and exc_type!=KeyboardInterrupt:
                 return True
         else:
             failures &= ~self.flag

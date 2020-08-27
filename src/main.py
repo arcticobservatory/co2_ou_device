@@ -17,119 +17,14 @@ Note that the hw object does not actually touch the hardware unless we start
 accessing its members.
 """
 
-hw = None
-exit_to_repl_after = False
+#import main_old
 
-try:
-    WDT_TIMEOUT_DEFAULT     = const(1000*60)
-    WDT_TIMEOUT_REPL        = const(1000*60*30)
-    ERROR_SLEEP_MS_DEFAULT  = const(1000*60*15)
+import co2unit_main2 as main
 
-    import machine
-    wdt = machine.WDT(timeout=WDT_TIMEOUT_DEFAULT)
+#raise KeyboardInterrupt()
 
-    import sys
-    import time
+with main.MainWrapper():
 
-    import co2unit_id
-    print("co2unit hardware id:", co2unit_id.hardware_id())
-
-    # Get handle to hardware
-    import co2unit_hw
-    hw = co2unit_hw.Co2UnitHw()
-
-    # If running on the breadboard unit or if switching units,
-    #   remember to set pinset from REPL...
-    # co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_BREADBOARD)
-    # co2unit_hw.pinset_on_boot(co2unit_hw.PINSET_PRODUCTION)
-
-    # Defer to co2unit_main
-    import co2unit_main
-    co2unit_main.wdt = wdt
-    next_state = co2unit_main.determine_state_after_reset()
-
-    # Area for temporary test overrides
-    # --------------------------------------------------
-    # exit_to_repl_after = True
-    # next_state = co2unit_main.STATE_QUICK_HW_TEST
-    # next_state = co2unit_main.STATE_COMMUNICATE
-    # next_state = co2unit_main.STATE_SCHEDULE
-    # next_state = co2unit_main.STATE_MEASURE
-    # next_state = co2unit_main.STATE_RECORD_FLASH
-    # next_state = co2unit_main.STATE_UPDATE
-    # raise Exception("Dummy Exception")
-
-    # Test update functionality
-    # ------------------
-    # hw.power_peripherals(True)
-    # hw.mount_sd_card()
-    # import fileutil
-    # fileutil.rm_recursive("/sd/updates")
-    # import co2unit_update
-    # co2unit_update.wdt = wdt
-    # co2unit_update.reset_update_for_test("/sd/updates/update-2019-07-25")
-    # import os
-    # hw.mount_sd_card()
-    # os.remove("/sd/var/updates-state.json")
-    # os.remove("/sd/conf/ou-id.json")
-    # --------------------------------------------------
-
-    sleep_ms, next_state = co2unit_main.run(hw, next_state)
-    co2unit_main.next_state_on_boot(next_state)
-
-    if exit_to_repl_after:
-        wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
-        sys.exit()
-
-    hw.prepare_for_shutdown()
-    if not sleep_ms:
-        print("Resetting...")
-        time.sleep_ms(20)    # Give a moment for output buffer to flush
-        machine.reset()
-    else:
-        print("Sleeping...")
-        machine.deepsleep(sleep_ms)
-
-except Exception as e:
-    # Show exception
-    print("Caught exception at top level")
-    sys.print_exception(e)
-
-    # Attempt to record exception
-    try:
-        import co2unit_errors
-        co2unit_errors.record_error(hw, e, "Uncaught exception at top level")
-    except Exception as e2:
-        print("Error trying to record first exception...")
-        sys.print_exception(e2)
-
-    if exit_to_repl_after:
-        wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
-        sys.exit()
-
-    # Determine how long to sleep
-    try:
-        # Attempt to return to normal schedule
-        import co2unit_main
-        sleep_ms, next_state = co2unit_main.schedule_wake(hw)
-        co2unit_main.next_state_on_boot(next_state)
-    except Exception as e2:
-        print("Error trying to schedule wakeup...")
-        sys.print_exception(e2)
-        sleep_ms = ERROR_SLEEP_MS_DEFAULT
-        print("Falling back to default", sleep_ms, "ms")
-
-    try:
-        hw.prepare_for_shutdown()
-    except Exception as e2:
-        print("Error trying to prepare for shutdown...")
-        sys.print_exception(e2)
-
-    print("Sleeping...")
-    machine.deepsleep(sleep_ms)
-
-except KeyboardInterrupt as e:
-    sys.print_exception(e)
-    print("Caught KeyboardInterrupt. Extending WDT and exiting to REPL...")
-    wdt = machine.WDT(timeout=WDT_TIMEOUT_REPL)
-    sys.exit()
+    runner = main.TaskRunner()
+    runner.run(main.BootUp)
+    raise KeyboardInterrupt()

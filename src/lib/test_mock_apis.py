@@ -2,13 +2,29 @@ import unittest
 
 try:
     import pycom
+    import machine
 except:
     import mock_apis
     pycom = mock_apis.MockPycom()
+    machine = mock_apis.MockMachine()
 
 import logging
-_logger = logging.getLogger("dummy_pycom")
+_logger = logging.getLogger("mock_apis")
 _logger.setLevel(logging.CRITICAL)
+
+class TestWdtBehavior(unittest.TestCase):
+
+    def test_wdt_init_call(self):
+        # Pycom firmware raises if you attempt to give the timeout as positional
+        with self.assertRaises(TypeError):
+            wdt = machine.WDT(1000*60*60)
+
+        with self.assertRaises(TypeError):
+            wdt = machine.WDT(timeout=None)
+
+        # Correct usage
+        wdt = machine.WDT(timeout=1000*60*60)
+        wdt.init(1000*60*60)
 
 class TestPycomNvRam(unittest.TestCase):
 
