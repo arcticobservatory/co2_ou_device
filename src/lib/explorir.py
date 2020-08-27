@@ -3,7 +3,7 @@ import logging
 import time
 
 _logger = logging.getLogger("explorir")
-_logger.setLevel(logging.DEBUG)
+#_logger.setLevel(logging.DEBUG)
 
 TIMEOUT_MS=200
 READ_WAIT_MS=10
