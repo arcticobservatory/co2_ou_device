@@ -154,6 +154,9 @@ class TestPycomNvsWithDefault(unittest.TestCase):
 
     def test_nvs_with_default(self):
         main.pycom.nvs_set("test_nvs_key_asdf", 123)
+        val = main.nvs_get_default("test_nvs_key_asdf", 456)
+        self.assertEqual(val, 123)
+
         main.pycom.nvs_erase("test_nvs_key_asdf")
         val = main.nvs_get_default("test_nvs_key_asdf", 456)
         self.assertEqual(val, 456)

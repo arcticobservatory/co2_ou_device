@@ -24,7 +24,10 @@ wdt = NoopWdt()
 
 def nvs_get_default(key, default=None):
     try:
-        return pycom.nvs_get(key)
+        val = pycom.nvs_get(key)
+        if val == None:
+            val = default
+        return val
     except ValueError:
         return default
 

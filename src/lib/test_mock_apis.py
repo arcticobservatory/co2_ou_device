@@ -1,4 +1,5 @@
 import unittest
+import mock_apis
 
 try:
     import pycom
@@ -28,7 +29,7 @@ class TestWdtBehavior(unittest.TestCase):
 
 class TestPycomNvRam(unittest.TestCase):
 
-    def test_pycom_nv_behavior(self):
+    def test_pycom_nv_set_get(self):
         pycom.nvs_set("test_key_asdf", 1234)
         val = pycom.nvs_get("test_key_asdf")
         self.assertEqual(val, 1234)
@@ -37,12 +38,26 @@ class TestPycomNvRam(unittest.TestCase):
         val = pycom.nvs_get("test_key_asdf")
         self.assertEqual(val, 5678)
 
+    @unittest.skipIf(not mock_apis.PYCOM_EXCEPTION_ON_NONEXISTENT_KEY,
+            "Test is for firmware variants that throw exceptions")
+    def test_pycom_nv_get_nonexistent_raise_error(self):
         pycom.nvs_erase("test_key_asdf")
 
         # get non-existent key
-        with self.assertRaises(ValueError):
+        with self.assertRaises(mock_apis.PYCOM_EXCEPTION_ON_NONEXISTENT_KEY):
             pycom.nvs_get("test_key_asdf")
 
-        # double-erase
+    @unittest.skipIf(mock_apis.PYCOM_EXCEPTION_ON_NONEXISTENT_KEY,
+            "Test is for firmware variants that return None")
+    def test_pycom_nv_get_nonexistent_return_none(self):
+        pycom.nvs_erase("test_key_asdf")
+
+        # get non-existent key
+        val = pycom.nvs_get("test_key_asdf")
+        self.assertEqual(val, None)
+
+    def test_pycom_nv_double_erase(self):
+        pycom.nvs_set("test_key_asdf", 1234)
+        pycom.nvs_erase("test_key_asdf")
         with self.assertRaises(KeyError):
             pycom.nvs_erase("test_key_asdf")

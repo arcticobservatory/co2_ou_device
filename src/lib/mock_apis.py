@@ -38,17 +38,22 @@ class MockMachine(object):
         self._deepsleep_called = True
         self._deepsleep_time_ms = time_ms
 
+# Some versions throw ValueError, others simply return None
+PYCOM_EXCEPTION_ON_NONEXISTENT_KEY = None
+#PYCOM_EXCEPTION_ON_NONEXISTENT_KEY = ValueError
+
 class MockPycom(object):
 
     def __init__(self):
         self._nvram = {}
 
     def nvs_get(self, key):
-        try:
+        if key in self._nvram:
             return self._nvram[key]
-        except KeyError as e:
-            # The actual Pycom API raises a ValueError on nonexistent key
-            raise ValueError(e)
+        elif PYCOM_EXCEPTION_ON_NONEXISTENT_KEY:
+            raise PYCOM_EXCEPTION_ON_NONEXISTENT_KEY()
+        else:
+            return None
 
     def nvs_set(self, key, val):
         _logger.info("pycom.nvs_set(%s, %s)", key, val)
