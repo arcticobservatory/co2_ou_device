@@ -374,10 +374,10 @@ nvs_task_log.register(CheckForUpdates)
 SCHEDULE_PATH = "conf/schedule.json"
 
 SCHEDULE_DEFAULT = [
-            #["TakeMeasurement", 'minutes', 30, 0],
-            #["Communicate", 'daily', 3, 15],
-            ["TakeMeasurement", 'minutes', 10, 0],
-            ["Communicate", 'minutes', 30, 2],
+            ["TakeMeasurement", 'minutes', 30, 0],
+            ["Communicate", 'daily', 3, 15],
+            #["TakeMeasurement", 'minutes', 10, 0],
+            #["Communicate", 'minutes', 30, 2],
             ]
 
 TASK_STRS = {
