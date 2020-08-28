@@ -142,6 +142,8 @@ class Co2UnitHw(object):
             if self.mosfet_pin == None:
                 _logger.info("No mosfet pin on this build")
             else:
+                if value:
+                    self.release_pins()
                 _logger.info("Setting power pin %s", value)
                 self.mosfet_pin(value)
             self._power_peripherals = value
@@ -203,6 +205,22 @@ class Co2UnitHw(object):
             _logger.debug("SD card already mounted")
         self.sd_mounted = True
 
+    leaky_pins = ('P22', 'P21', 'P3', 'P4', 'P10', 'P9')
+
+    def hold_pins(self):
+            for p in self.leaky_pins:
+                _logger.info("Holding pin %s", p)
+                pin = Pin(p, mode=Pin.OUT)
+                pin(1)
+                pin.hold(True)
+
+    def release_pins(self):
+        pins = ('P22', 'P21', 'P3', 'P4', 'P10', 'P9')
+        for p in self.leaky_pins:
+            _logger.info("Releasing pin %s", p)
+            pin = Pin(p, mode=Pin.OUT)
+            pin.hold(False)
+
     def prepare_for_shutdown(self):
         if self.sd_mounted:
             _logger.info("Unmounting SD card")
@@ -215,6 +233,11 @@ class Co2UnitHw(object):
             self.power_peripherals(False)
         except:
             _logger.exception("Could not cut power to peripherals")
+
+        try:
+            self.hold_pins()
+        except:
+            _logger.exception("Could not hold pins")
 
         try:
             self.set_wake_on_flash_pin()
