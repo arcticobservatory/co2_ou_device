@@ -3,7 +3,8 @@
 
 .PHONY: default clean distclean load_py reload dev_connect \
     dev_reset_wdt dev_erase_flash_fs \
-    dev_lte_firmware_info dev_lte_firmware_update
+    dev_lte_firmware_info dev_lte_firmware_update \
+    dev_mess_with_time
 
 # Source Python files
 SRC_PY := $(wildcard src/*.py src/lib/*.py)
@@ -60,6 +61,10 @@ dev_lte_firmware_info: dev_reset_wdt | .venv
 dev_lte_firmware_update: dev_reset_wdt dev_lte_firmware_info | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run --no-output on_device_scripts/lte_firmware_update.py
 	tio $(PORT)
+
+# Reset watchdog timer on device
+dev_mess_with_time: dev_reset_wdt | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/mess_with_time.py
 
 # Precompile bytecode
 # ==================================================

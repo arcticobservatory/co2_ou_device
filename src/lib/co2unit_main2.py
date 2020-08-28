@@ -1,4 +1,5 @@
 import ustruct
+import utime
 
 try:
     import sys
@@ -223,11 +224,14 @@ class BootUp(object):
         elif reset_cause == machine.DEEPSLEEP_RESET:
             return [InitPeripherals, CheckForUpdates, CheckSchedule]
 
-        elif reset_cause == machine.WDT_RESET:
+        elif reset_cause == machine.SOFT_RESET:
+            # Pressed CTRL+D on console. Good for testing sequences.
+            return [InitPeripherals, CheckSchedule]
+
+        elif reset_cause == machine.WDT_RESET or True:
+            # WDT_REST also seems to apply to machine.reset() in script
             return [InitPeripherals, CrashRecovery]
 
-        else:
-            return [InitPeripherals, CrashRecovery]
 
 nvs_task_log.register(BootUp)
 
@@ -375,17 +379,33 @@ TASK_STRS = {
         }
 
 class CheckSchedule(object):
-    def runwith(self, itt=None, sched_cfg=None):
+    def runwith(self, itt, sched_cfg, ett=None):
         import schedule
 
-        _logger.info("Current time: %s", itt)
+        _logger.info("Current time (interal  RTC): %s", itt)
+        _logger.info("Current time (external RTC): %s", ett)
 
         sched = schedule.Schedule(sched_cfg)
         for task, task_sched in sched.sched:
             _logger.info("Schedule item: %s, %s", task, task_sched)
 
         tasks = sched.check(itt)
-        _logger.info("Time to %s", tasks)
+        if ett:
+            etasks = sched.check(ett)
+            if tasks != etasks:
+                if ett < itt:
+                    _logger.info("Scheduled to run %s, but we are early. Going by external time: %s.", tasks, etasks)
+                    tasks = etasks
+                else:
+                    _logger.info("Scheduled to run %s, but we are late. Running those tasks.", tasks)
+
+        if ett and ett < itt:
+            etasks = sched.check(ett)
+            if tasks != etasks:
+                _logger.info("Scheduled to run %s, but we are early. Going by external time: %s.", tasks, etasks)
+                tasks = etasks
+
+        _logger.info("Scheduled to run %s", tasks)
 
         task_objs = []
         for task_str in tasks:
@@ -398,13 +418,16 @@ class CheckSchedule(object):
 
     def run(self):
         import utime
-        hw.sync_to_most_reliable_rtc(reset_ok=True)
         itt = utime.localtime()
-        return self.runwith(itt=itt, sched_cfg=SCHEDULE_DEFAULT)
+        ett = hw.ertc.get_time()
+        hw.sync_to_most_reliable_rtc(reset_ok=True)
+        return self.runwith(itt=itt, ett=ett, sched_cfg=SCHEDULE_DEFAULT)
 
 nvs_task_log.register(CheckSchedule)
 
 class SleepUntilScheduled(object):
+
+    MIN_DEEPSLEEP_MS = 1000 * 20
 
     def runwith(self, tt=None, sched_cfg=None):
         import schedule
@@ -421,13 +444,21 @@ class SleepUntilScheduled(object):
 
         next_tt, task = agenda[0]
         secs = timeutil.mktime(next_tt) - timeutil.mktime(tt)
+        ms = secs * 1000
+
+        # Deep sleep is not really worth it for less than ~30 sec.
+        # Instead, light sleep and then go back to checking the schedule.
+        if ms < self.MIN_DEEPSLEEP_MS:
+            _logger.info("Light sleeping only %d seconds until %s", secs, task)
+            utime.sleep_ms(ms)
+            return [CheckSchedule, SleepUntilScheduled]
 
         if hw:
             _logger.info("Preparing for shutdown")
             hw.prepare_for_shutdown()
 
         _logger.info("Sleeping %d seconds until %s", secs, task)
-        machine.deepsleep(secs * 1000)
+        machine.deepsleep(ms)
 
     def run(self):
         import utime

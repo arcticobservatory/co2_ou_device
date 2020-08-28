@@ -38,6 +38,17 @@ class MockMachine(object):
         self._deepsleep_called = True
         self._deepsleep_time_ms = time_ms
 
+class MockUtime(object):
+
+    def __init__(self):
+        self._sleep_ms_called = False
+        self._sleep_ms_time_ms = None
+
+    def sleep_ms(self, time_ms):
+        _logger.info("machine.deepsleep(%s)", time_ms)
+        self._sleep_ms_called = True
+        self._sleep_ms_time_ms = time_ms
+
 # Some versions throw ValueError, others simply return None
 PYCOM_EXCEPTION_ON_NONEXISTENT_KEY = None
 #PYCOM_EXCEPTION_ON_NONEXISTENT_KEY = ValueError

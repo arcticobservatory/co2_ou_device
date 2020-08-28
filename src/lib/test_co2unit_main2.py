@@ -201,12 +201,65 @@ class TestCheckSchedule(unittest.TestCase):
                     ])
         self.assertEqual(tasks, [])
 
+    def test_clock_drift_wake_early(self):
+        check = main.CheckSchedule()
+        tasks = check.runwith(
+                itt=timeutil.parse_time("2020-08-27 07:30:05"),
+                ett=timeutil.parse_time("2020-08-27 07:28:05"),
+                sched_cfg=[
+                        ["TakeMeasurement", 'minutes', 30, 0],
+                        ["Communicate", 'daily', 3, 15],
+                    ])
+        # Don't schedule anything.
+        # We will sync RTCs and wake up again on time
+        self.assertEqual(tasks, [])
+
+    def test_clock_drift_wake_late(self):
+        check = main.CheckSchedule()
+        tasks = check.runwith(
+                itt=timeutil.parse_time("2020-08-27 07:30:05"),
+                ett=timeutil.parse_time("2020-08-27 07:32:05"),
+                sched_cfg=[
+                        ["TakeMeasurement", 'minutes', 30, 0],
+                        ["Communicate", 'daily', 3, 15],
+                    ])
+        # Do the task that we woke up for.
+        # Otherwise it will never get done.
+        self.assertEqual(tasks, [main.TakeMeasurement])
+
+    def test_clock_drift_wake_barely_early(self):
+        check = main.CheckSchedule()
+        tasks = check.runwith(
+                itt=timeutil.parse_time("2020-08-27 07:30:10"),
+                ett=timeutil.parse_time("2020-08-27 07:30:05"),
+                sched_cfg=[
+                        ["TakeMeasurement", 'minutes', 30, 0],
+                        ["Communicate", 'daily', 3, 15],
+                    ])
+        # Do the task that we woke up for.
+        # Otherwise it will never get done.
+        self.assertEqual(tasks, [main.TakeMeasurement])
+
+    def test_clock_drift_reset_internal(self):
+        check = main.CheckSchedule()
+        tasks = check.runwith(
+                itt=timeutil.parse_time("1970-01-01 00:30:10"),
+                ett=timeutil.parse_time("2020-08-27 07:28:05"),
+                sched_cfg=[
+                        ["TakeMeasurement", 'minutes', 30, 0],
+                        ["Communicate", 'daily', 3, 15],
+                    ])
+        # Do the task that we woke up for.
+        # Otherwise it may never get done.
+        self.assertEqual(tasks, [main.TakeMeasurement])
+
 class TestSleepUntilScheduled(unittest.TestCase):
 
     def setUp(self):
         main.machine = mock_apis.MockMachine()
         main.sys = mock_apis.MockSys()
         main.hw = mock_apis.MockCo2UnitHw()
+        main.utime = mock_apis.MockUtime()
 
     def test_sleep_until_next_task(self):
         sleep_until = main.SleepUntilScheduled()
@@ -220,6 +273,25 @@ class TestSleepUntilScheduled(unittest.TestCase):
         self.assertTrue(main.hw._prepare_for_shutdown_called, True)
         self.assertTrue(main.machine._deepsleep_called)
         self.assertEqual(main.machine._deepsleep_time_ms, 1305000)
+
+    def test_light_sleep_if_next_task_very_soon(self):
+        sleep_until = main.SleepUntilScheduled()
+        tasks = sleep_until.runwith(
+                tt=timeutil.parse_time("2020-08-27 07:29:55"),
+                sched_cfg=[
+                        ["TakeMeasurement", 'minutes', 30, 0],
+                        ["Communicate", 'daily', 3, 15],
+                    ])
+
+        # Deep sleep is not really worth it for less than ~30 sec.
+        # Instead, light sleep and then go back to checking the schedule.
+        # Be sure to put this step back in the queue again,
+        # since we didn't deep sleep and reset the device.
+        self.assertEqual(main.hw._prepare_for_shutdown_called, False)
+        self.assertEqual(main.machine._deepsleep_called, False)
+        self.assertEqual(main.utime._sleep_ms_called, True)
+        self.assertEqual(main.utime._sleep_ms_time_ms, 5000)
+        self.assertEqual(tasks, [main.CheckSchedule, main.SleepUntilScheduled])
 
     def test_sleep_if_hw_not_initialized(self):
         main.hw = None
