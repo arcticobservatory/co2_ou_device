@@ -323,7 +323,7 @@ class TakeMeasurement(object):
         co2unit_measure.measure_sequence(hw, flash_count=flash_count)
 
         _logger.info("Resetting flash count after recording it")
-        pycom.nvs_set("co2_flash_count")
+        pycom.nvs_set("co2_flash_count", flash_count)
 
 nvs_task_log.register(TakeMeasurement)
 
