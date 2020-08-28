@@ -99,13 +99,12 @@ $(MPY_CROSS): $(wildcard $(dir $(MPY_CROSS))/*.c)
 	cd $(dir $(MPY_CROSS)) && make
 
 # Generic rule to cross-compile individual files
-target/bytecode/%.mpy: src/%.py $(MPY_CROSS)
-	$(MPY_CROSS) $< && mkdir -p $(@D) && mv $(<:.py=.mpy) $@
+%.mpy: %.py $(MPY_CROSS)
+	$(MPY_CROSS) $<
 
-# Just copy main.py directly
-.INTERMEDIATE: target/bytecode/main.mpy
-target/bytecode/main.py: src/main.py
-	cp $< $@
+# Generic rule to move to bytecode directory
+target/bytecode/%: src/%
+	mkdir -p $(@D) && cp $< $@
 
 # All bytecode files
 bytecode: $(BYTECODE_MPY) target/bytecode/main.py

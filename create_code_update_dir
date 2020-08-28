@@ -33,9 +33,13 @@ CHANGED_SRC_FILES="$(git diff --name-only $FROM_VERSION $TO_VERSION -- src/)"
 
 for FILE in $CHANGED_SRC_FILES; do
     DEST_FILE="$DEST_DIR/flash/${FILE#src\/}"
+    DEST_MPY="${DEST_FILE/.py/.mpy}"
     echo 1>&2 -e "$FILE\t\t> $DEST_FILE"
 
     mkdir -p $(dirname "$DEST_FILE")
     # Fetch the file at the new version output it to the destination dir
     git show "$TO_VERSION:$FILE" > "$DEST_FILE"
+    if [[ "$(basename $DEST_FILE)" != "main.py" ]]; then
+        make "$DEST_MPY" && rm "$DEST_FILE"
+    fi
 done
