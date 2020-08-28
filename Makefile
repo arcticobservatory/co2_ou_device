@@ -2,7 +2,7 @@
 # ==================================================
 
 .PHONY: default clean distclean load_py reload dev_connect \
-    dev_reset_wdt dev_erase_flash_fs \
+    dev_reset_wdt dev_erase_flash_fs dev_remove_tmp_states \
     dev_lte_firmware_info dev_lte_firmware_update \
     dev_mess_with_time
 
@@ -51,6 +51,10 @@ dev_erase_flash_fs: dev_reset_wdt | .venv
 	    && ampy --port $(PORT) run on_device_scripts/reformat_flash.py \
 	    && ampy --port $(PORT) reset && echo "Device reset" \
 	    && rm -f .last_load_marker
+
+# Reset watchdog timer on device
+dev_remove_tmp_states: dev_reset_wdt | .venv
+	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/remove_tmp_states.py
 
 dev_lte_firmware_info: dev_reset_wdt | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/lte_firmware_info.py
