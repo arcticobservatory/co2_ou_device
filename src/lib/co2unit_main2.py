@@ -220,11 +220,14 @@ class BootUp(object):
                     QuickSelfTest, LteTest,
                     Communicate, CheckForUpdates]
 
-        elif reset_cause == machine.WDT_RESET:
-            return [CrashRecovery]
-
         elif reset_cause == machine.DEEPSLEEP_RESET:
             return [InitPeripherals, CheckForUpdates, CheckSchedule]
+
+        elif reset_cause == machine.WDT_RESET:
+            return [InitPeripherals, CrashRecovery]
+
+        else:
+            return [InitPeripherals, CrashRecovery]
 
 nvs_task_log.register(BootUp)
 
@@ -232,9 +235,9 @@ hw = None
 
 class InitPeripherals(object):
     def run(self):
-        global hw
         import co2unit_hw
         import time
+        global hw
         hw = co2unit_hw.Co2UnitHw()
 
         # Turn on peripherals
@@ -247,9 +250,12 @@ nvs_task_log.register(InitPeripherals)
 
 class CrashRecovery(object):
     def run(self):
-        entrycount = nvs_get_default("crash_recover_count", 0)
+        import time
+        global hw
+
+        entrycount = nvs_get_default("recover_count", 0)
         entrycount += 1
-        pycom.nvs_set("crash_recover_count", entrycount)
+        pycom.nvs_set("recover_count", entrycount)
 
         _logger.info("CRASH RECOVERY. This is recovery attempt %s", entrycount)
 
@@ -281,7 +287,7 @@ class CrashRecovery(object):
         except Exception as e:
             _logger.exc(e, "Could not turn off LTE modem")
 
-        pycom.nvs_set("crash_recover_count", 0)
+        pycom.nvs_set("recover_count", 0)
 
 nvs_task_log.register(CrashRecovery)
 
