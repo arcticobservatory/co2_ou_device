@@ -1,3 +1,5 @@
+import ustruct
+
 try:
     import sys
     import machine
@@ -31,6 +33,12 @@ def nvs_get_default(key, default=None):
     except ValueError:
         return default
 
+def nvs_erase_idempotent(key):
+    try:
+        pycom.nvs_erase(key)
+    except KeyError:
+        pass
+
 class MainWrapper(object):
     """ Top-level run behavior
 
@@ -61,6 +69,101 @@ class MainWrapper(object):
         machine.deepsleep(LAST_RESORT_DEEPSLEEP_MS)
         return False
 
+class NvsTaskLog(object):
+
+    TASK_NONE = -1
+    TASK_UNKNOWN = -2
+
+    STAT_STRS = [None, "START","OK","FAIL"]
+    KEY_PREFIX = "task_log_"
+    LOG_LEN = 16
+
+    NULL_EVENT = (None, None, 0)
+
+    def __init__(self):
+        self.registry = []
+
+    def register(self, task):
+        self.registry.append(task)
+
+    def _pack_event(self, task, status, repetitions):
+        if task == None:
+            taskid = self.TASK_NONE
+        elif task in self.registry:
+            taskid = self.registry.index(task)
+        else:
+            taskid = self.TASK_UNKNOWN
+
+        status = self.STAT_STRS.index(status)
+
+        if repetitions > 255:
+            repetitions = 255
+
+        b = ustruct.pack("hBB", taskid, status, repetitions)
+        i = ustruct.unpack("I", b)[0]
+        return i
+
+    def _unpack_event(self, packed):
+        if packed == None:
+            return self.NULL_EVENT
+
+        b = ustruct.pack("I", packed)
+        taskid, status, repetitions = ustruct.unpack("hBB", b)
+
+        if taskid == self.TASK_NONE:
+            task = None
+        elif taskid == self.TASK_UNKNOWN:
+            task = "UNKNOWN_TASK"
+        elif taskid < len(self.registry):
+            task = self.registry[taskid]
+        else:
+            task = taskid
+
+        status = self.STAT_STRS[status]
+        return task, status, repetitions
+
+    def _key_str(self, i):
+        return "{}{:03d}".format(self.KEY_PREFIX, i)
+
+    def _persist_run_log(self, log):
+        for i, event in enumerate(log):
+            key = self._key_str(i)
+            packed = self._pack_event(*event)
+            pycom.nvs_set(key, packed)
+
+    def read_run_log(self):
+        log = []
+        for i in range(0, self.LOG_LEN):
+            key = self._key_str(i)
+            packed = nvs_get_default(key, default=None)
+            event = self._unpack_event(packed)
+            if event != self.NULL_EVENT:
+                log.append(event)
+        return log
+
+    def _record_event(self, task, status):
+        log = self.read_run_log()
+
+        if log and log[0][0:2] == (task, status):
+            log[0] = (task, status, log[0][2]+1)
+        else:
+            if len(log) >= self.LOG_LEN:
+                log = log[1:]
+            log.append( (task,status,1) )
+
+        self._persist_run_log(log)
+
+    def reset_log(self):
+        for i in range(0, self.LOG_LEN):
+            key = self._key_str(i)
+            nvs_erase_idempotent(key)
+
+    def record_start(self, task): self._record_event(task, "START")
+    def record_ok(self, task): self._record_event(task, "OK")
+    def record_fail(self, task): self._record_event(task, "FAIL")
+
+nvs_task_log = NvsTaskLog()
+
 class TaskRunner(object):
 
     def __init__(self):
@@ -68,21 +171,29 @@ class TaskRunner(object):
         self.history = []
 
     def run_next_task(self):
-        _logger.info("Task queue: %s", self.queue)
         task = self.queue[0]
         self.queue = self.queue[1:]
+
+        for event in nvs_task_log.read_run_log():
+            _logger.info("PREVIOUSLY: %-30s %-5s %3d", *event)
+        _logger.info("NEXT      : %s", task)
+        for t in self.queue:
+            _logger.info("THEN      : %s", t)
 
         instance = task() if isinstance(task, type) else task
         result = None
         _logger.info("=== Task %s START ===", instance)
+        nvs_task_log.record_start(task)
         try:
             result = instance.run()
             _logger.info("=== Task %s OK ===", instance)
+            nvs_task_log.record_ok(task)
             self.history.append(instance)
         except KeyboardInterrupt:
             raise
         except:
             _logger.exception("=== Task %s FAIL ===", instance)
+            nvs_task_log.record_fail(task)
 
         if result:
             result = [result] if not isinstance(result, list) else result
@@ -115,6 +226,8 @@ class BootUp(object):
         elif reset_cause == machine.DEEPSLEEP_RESET:
             return [InitPeripherals, CheckForUpdates, CheckSchedule]
 
+nvs_task_log.register(BootUp)
+
 hw = None
 
 class InitPeripherals(object):
@@ -130,13 +243,15 @@ class InitPeripherals(object):
         _logger.info("Giving hardware a moment after power on")
         time.sleep_ms(100)
 
+nvs_task_log.register(InitPeripherals)
+
 class CrashRecovery(object):
     def run(self):
         entrycount = nvs_get_default("crash_recover_count", 0)
         entrycount += 1
         pycom.nvs_set("crash_recover_count", entrycount)
 
-        _logger.info("This is recovery attempt %s", entrycount)
+        _logger.info("CRASH RECOVERY. This is recovery attempt %s", entrycount)
 
         if entrycount > 5:
             _logger.error("Too many recovery attempts (%s). Giving up.", entrycount)
@@ -144,7 +259,8 @@ class CrashRecovery(object):
 
         try:
             import co2unit_errors
-            co2unit_errors.warning(hw, "Running recovery procedure (attempt %s). Watchdog reset?")
+            co2unit_errors.warning(hw, "CRASH RECOVERY. Running recovery procedure (attempt %d). Watchdog reset?" % entrycount)
+            co2unit_errors.info(hw, "Run log leading up to this... %s" % (nvs_task_log.read_run_log(),) )
         except Exception as e:
             _logger.exc(e, "Could not log warning")
 
@@ -167,6 +283,8 @@ class CrashRecovery(object):
 
         pycom.nvs_set("crash_recover_count", 0)
 
+nvs_task_log.register(CrashRecovery)
+
 # Self Tests
 # --------------------------------------------------
 
@@ -176,12 +294,16 @@ class QuickSelfTest(object):
         co2unit_self_test.wdt = wdt
         co2unit_self_test.quick_test_hw(hw)
 
+nvs_task_log.register(QuickSelfTest)
+
 class LteTest(object):
     def run(self):
         import co2unit_self_test
         import time
         co2unit_self_test.wdt = wdt
         co2unit_self_test.test_lte_ntp(hw)
+
+nvs_task_log.register(LteTest)
 
 # Actual Operation
 # --------------------------------------------------
@@ -197,11 +319,15 @@ class TakeMeasurement(object):
         _logger.info("Resetting flash count after recording it")
         pycom.nvs_set("co2_flash_count")
 
+nvs_task_log.register(TakeMeasurement)
+
 class Communicate(object):
     def run(self):
         import co2unit_comm
         co2unit_comm.wdt = wdt
         lte, got_updates = co2unit_comm.comm_sequence(hw)
+
+nvs_task_log.register(Communicate)
 
 # Updates
 # --------------------------------------------------
@@ -222,6 +348,8 @@ class CheckForUpdates(object):
         updated = co2unit_update.update_sequence(hw)
         if updated:
             return Communicate
+
+nvs_task_log.register(CheckForUpdates)
 
 # Scheduling
 # --------------------------------------------------
@@ -268,6 +396,8 @@ class CheckSchedule(object):
         itt = utime.localtime()
         return self.runwith(itt=itt, sched_cfg=SCHEDULE_DEFAULT)
 
+nvs_task_log.register(CheckSchedule)
+
 class SleepUntilScheduled(object):
 
     def runwith(self, tt=None, sched_cfg=None):
@@ -298,3 +428,5 @@ class SleepUntilScheduled(object):
         tt = utime.localtime()
         sched = SCHEDULE_DEFAULT
         return self.runwith(tt=tt, sched_cfg=SCHEDULE_DEFAULT)
+
+nvs_task_log.register(SleepUntilScheduled)

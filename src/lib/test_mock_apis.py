@@ -61,3 +61,9 @@ class TestPycomNvRam(unittest.TestCase):
         pycom.nvs_erase("test_key_asdf")
         with self.assertRaises(KeyError):
             pycom.nvs_erase("test_key_asdf")
+
+    def test_pycom_nv_negative_values(self):
+
+        pycom.nvs_set("test_key_asdf", -1234)
+        val = pycom.nvs_get("test_key_asdf")
+        self.assertEqual(val, -1234)

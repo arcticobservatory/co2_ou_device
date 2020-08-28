@@ -161,6 +161,13 @@ class TestPycomNvsWithDefault(unittest.TestCase):
         val = main.nvs_get_default("test_nvs_key_asdf", 456)
         self.assertEqual(val, 456)
 
+    def test_nvs_erase_idempotent(self):
+        main.pycom.nvs_set("test_nvs_key_asdf", 123)
+        main.nvs_erase_idempotent("test_nvs_key_asdf")
+        main.nvs_erase_idempotent("test_nvs_key_asdf")
+        val = main.nvs_get_default("test_nvs_key_asdf", 456)
+        self.assertEqual(val, 456)
+
 class TestCheckSchedule(unittest.TestCase):
 
     def test_no_task(self):
@@ -224,3 +231,194 @@ class TestSleepUntilScheduled(unittest.TestCase):
                         ["TakeMeasurement", 'minutes', 30, 0],
                         ["Communicate", 'daily', 3, 15],
                     ])
+
+class TestPersistentTaskLog(unittest.TestCase):
+
+    class TaskA(object):
+        def run(self): pass
+    class TaskB(object):
+        def run(self): pass
+    class TaskC(object):
+        def run(self): pass
+
+    def setUp(self):
+        main.machine = mock_apis.MockMachine()
+        main.sys = mock_apis.MockSys()
+        main.pycom = mock_apis.MockPycom()
+        main.nvs_task_log = main.NvsTaskLog()
+
+    def test_pack(self):
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+
+        event = (self.TaskA, "START", 1)
+
+        packed = ti._pack_event(*event)
+        self.assertIsInstance(packed, int)
+
+        unpack = ti._unpack_event(packed)
+        self.assertEqual(unpack, event)
+
+    def test_pack_none(self):
+        ti = main.NvsTaskLog()
+        packed = ti._pack_event(None,None,0)
+        self.assertEqual(ti._unpack_event(packed), (None, None, 0))
+        self.assertEqual(ti._unpack_event(None), (None, None, 0))
+
+    def test_pack_unregistered(self):
+        ti = main.NvsTaskLog()
+        packed = ti._pack_event(self.TaskA,None,0)
+        self.assertEqual(ti._unpack_event(packed), ("UNKNOWN_TASK", None, 0))
+
+    def test_unpack_unregistered(self):
+        ti = main.NvsTaskLog()
+        packed = ti.register(self.TaskA)
+        packed = ti._pack_event(self.TaskA,None,0)
+        ti = main.NvsTaskLog()
+        self.assertEqual(ti._unpack_event(packed), (0, None, 0))
+
+    def test_pack_too_many_reps(self):
+        ti = main.NvsTaskLog()
+        packed = ti._pack_event(None,None,257)
+        self.assertEqual(ti._unpack_event(packed), (None, None, 255))
+
+    def test_key_fmt(self):
+
+        ti = main.NvsTaskLog()
+        self.assertEqual(ti._key_str(20), "task_log_020")
+
+    def test_record_start_ok_fail(self):
+
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+
+        self.assertEqual(ti.read_run_log(), [])
+
+        ti.record_start(self.TaskA)
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA,"START",1)])
+
+        ti.record_ok(self.TaskA)
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA,"START",1),
+            (self.TaskA,"OK",1)])
+
+        ti.record_fail(self.TaskA)
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA,"START",1),
+            (self.TaskA,"OK",1),
+            (self.TaskA,"FAIL",1)])
+
+    def test_record_repeated(self):
+
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+
+        self.assertEqual(ti.read_run_log(), [])
+
+        ti.record_start(self.TaskA)
+        self.assertEqual(ti.read_run_log(), [ (self.TaskA,"START",1)]) 
+
+        ti.record_start(self.TaskA)
+        self.assertEqual(ti.read_run_log(), [ (self.TaskA,"START",2) ])
+
+    def test_log_limit(self):
+
+        ti = main.NvsTaskLog()
+        for i in range(0, ti.LOG_LEN):
+            self.assertEqual(len(ti.read_run_log()), i)
+            ti.register(i)
+            ti.record_start(i)
+
+        self.assertEqual(ti.read_run_log()[0], (0, "START", 1))
+        self.assertEqual(ti.read_run_log()[-1], (ti.LOG_LEN-1, "START", 1))
+
+        for i in range(ti.LOG_LEN, ti.LOG_LEN+5):
+            self.assertEqual(len(ti.read_run_log()), ti.LOG_LEN)
+            ti.register(i)
+            ti.record_start(i)
+
+        self.assertEqual(ti.read_run_log()[0], (5, "START", 1))
+        self.assertEqual(ti.read_run_log()[-1], (ti.LOG_LEN+4, "START", 1))
+
+        ti.reset_log()
+        self.assertEqual(ti.read_run_log(), [])
+
+    def test_persist_run_log(self):
+
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+        ti.register(self.TaskB)
+
+        ti.record_start(self.TaskA)
+        ti.record_start(self.TaskB)
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA, "START", 1), (self.TaskB, "START", 1) ])
+
+        # Create a fresh one
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+        ti.register(self.TaskB)
+
+        # Should get previous values from NVS
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA, "START", 1), (self.TaskB, "START", 1) ])
+
+    def test_accept_unregistered(self):
+
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+
+        ti.record_start(self.TaskA)
+        ti.record_start(self.TaskB)
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA, "START", 1), ("UNKNOWN_TASK", "START", 1) ])
+
+    def test_display_unregistered(self):
+
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+        ti.register(self.TaskB)
+        ti.register(self.TaskC)
+
+        ti.record_start(self.TaskA)
+        ti.record_start(self.TaskB)
+        ti.record_start(self.TaskC)
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA, "START", 1),
+            (self.TaskB, "START", 1),
+            (self.TaskC, "START", 1),
+            ])
+
+        # Create a fresh one
+        ti = main.NvsTaskLog()
+        ti.register(self.TaskA)
+        ti.register(self.TaskB)
+
+        # Should get values from NVS, using just ids if not in registry
+        self.assertEqual(ti.read_run_log(), [
+            (self.TaskA, "START", 1),
+            (self.TaskB, "START", 1),
+            (2, "START", 1),
+            ])
+
+    def test_runner_tasks(self):
+
+        class OkTask(object):
+            def run(self): pass
+        class FailTask(object):
+            def run(self): raise Exception("Test Exception")
+
+        main.nvs_task_log = main.NvsTaskLog()
+        main.nvs_task_log.register(OkTask)
+        main.nvs_task_log.register(FailTask)
+
+        runner = main.TaskRunner()
+        runner.run(OkTask, FailTask)
+
+        self.assertEqual(main.nvs_task_log.read_run_log(), [
+            (OkTask, "START", 1),
+            (OkTask, "OK", 1),
+            (FailTask, "START", 1),
+            (FailTask, "FAIL", 1),
+            ])
