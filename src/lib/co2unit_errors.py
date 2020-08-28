@@ -30,8 +30,11 @@ def _record(hw, level, msg, exc=None):
     except:
         pass
 
+    fmt_msg = "----- {} {:5} {}\n".format(tt, level, msg)
+    _logger.info(fmt_msg)
+
     with open(target, "at") as f:
-        f.write("----- {} {:5} {}\n".format(tt, level, msg))
+        f.write(fmt_msg)
         if exc:
             sys.print_exception(exc, f)
     _logger.info("Recorded error successfully to %s", target)

@@ -226,12 +226,12 @@ class BootUp(object):
 
         elif reset_cause == machine.SOFT_RESET:
             # Pressed CTRL+D on console. Good for testing sequences.
-            return [InitPeripherals, CheckSchedule]
+            return [InitPeripherals, CrashRecovery]
+            #return [InitPeripherals, CheckSchedule]
 
         elif reset_cause == machine.WDT_RESET or True:
             # WDT_REST also seems to apply to machine.reset() in script
             return [InitPeripherals, CrashRecovery]
-
 
 nvs_task_log.register(BootUp)
 
@@ -267,29 +267,35 @@ class CrashRecovery(object):
             _logger.error("Too many recovery attempts (%s). Giving up.", entrycount)
             return
 
+        lte_was_on = nvs_get_default("lte_on", False)
+        lte_turned_off = False
+
+        if lte_was_on:
+            try:
+                _logger.info("Making sure LTE modem is off")
+
+                # LTE init seems to be successful more often if we give it time first
+                time.sleep_ms(1000)
+
+                import network
+                _logger.info("Initializing LTE just to get handle...")
+                lte = network.LTE()
+                wdt.feed()
+                _logger.info("Deinit...")
+                lte.deinit()
+                wdt.feed()
+                _logger.info("LTE off")
+                lte_turned_off = True
+                pycom.nvs_set("lte_on", False)
+            except Exception as e:
+                _logger.exc(e, "Could not turn off LTE modem")
+
         try:
             import co2unit_errors
-            co2unit_errors.warning(hw, "CRASH RECOVERY. Running recovery procedure (attempt %d). Watchdog reset?" % entrycount)
+            co2unit_errors.warning(hw, "CRASH RECOVERY. Running recovery procedure (attempt %d). Watchdog reset? LTE was on: %s; LTE turned off: %s" % (entrycount, lte_was_on, lte_turned_off) )
             co2unit_errors.info(hw, "Run log leading up to this... %s" % (nvs_task_log.read_run_log(),) )
         except Exception as e:
             _logger.exc(e, "Could not log warning")
-
-        try:
-            _logger.info("Making sure LTE modem is off")
-
-            # LTE init seems to be successful more often if we give it time first
-            time.sleep_ms(1000)
-
-            import network
-            _logger.info("Initializing LTE just to get handle...")
-            lte = network.LTE()
-            wdt.feed()
-            _logger.info("Deinit...")
-            lte.deinit()
-            wdt.feed()
-            _logger.info("LTE off")
-        except Exception as e:
-            _logger.exc(e, "Could not turn off LTE modem")
 
         pycom.nvs_set("recover_count", 0)
 

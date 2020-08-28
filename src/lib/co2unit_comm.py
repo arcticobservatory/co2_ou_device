@@ -2,6 +2,7 @@ import logging
 import machine
 import network
 import os
+import pycom
 import time
 import uio
 import urequests
@@ -105,6 +106,7 @@ def lte_connect(hw):
     signal_quality = None
 
     with TimedStep("LTE init"):
+        pycom.nvs_set("lte_on", True)
         lte = network.LTE()
 
     with TimedStep("LTE attach"):
@@ -148,6 +150,7 @@ def lte_deinit(lte):
     finally:
         with TimedStep("LTE deinit"):
             lte.deinit()
+            pycom.nvs_set("lte_on", False)
 
 def request(method, host, path, data=None, json=None, headers={}, accept_statuses=[200]):
     url = host + path

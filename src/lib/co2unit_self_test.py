@@ -273,6 +273,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
 
             _logger.info("Init LTE...")
             chrono.reset()
+            pycom.nvs_set("lte_on", True)
             lte = LTE()
             _logger.info("LTE init ok (%d ms)", chrono.read_ms())
     except:
@@ -352,6 +353,7 @@ def test_lte_ntp(hw, max_drift_secs=4):
                 finally:
                     chrono.reset()
                     lte.deinit()
+                    pycom.nvs_set("lte_on", False)
                     _logger.info("LTE deinit-ed (%d ms)", chrono.read_ms())
                     wdt.feed()
     except:
