@@ -17,14 +17,9 @@ Note that the hw object does not actually touch the hardware unless we start
 accessing its members.
 """
 
-#import main_old
-
 import co2unit_main2 as main
-
-#raise KeyboardInterrupt()
 
 with main.MainWrapper():
 
     runner = main.TaskRunner()
     runner.run(main.BootUp, main.SleepUntilScheduled)
-    raise KeyboardInterrupt()

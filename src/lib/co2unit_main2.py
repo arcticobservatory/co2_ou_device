@@ -342,6 +342,7 @@ class Communicate(object):
         import co2unit_comm
         co2unit_comm.wdt = wdt
         lte, got_updates = co2unit_comm.comm_sequence(hw)
+        return [CheckForUpdates]
 
 nvs_task_log.register(Communicate)
 
