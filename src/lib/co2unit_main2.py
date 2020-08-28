@@ -180,10 +180,6 @@ class LteTest(object):
     def run(self):
         import co2unit_self_test
         import time
-        # Trying to access LTE too quickly after a reset will put the modem in
-        # an error state.
-        _logger.info("Giving modem a few moments to boot")
-        time.sleep(20)
         co2unit_self_test.wdt = wdt
         co2unit_self_test.test_lte_ntp(hw)
 
