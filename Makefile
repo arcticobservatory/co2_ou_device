@@ -52,21 +52,25 @@ dev_erase_flash_fs: dev_reset_wdt | .venv
 	    && ampy --port $(PORT) reset && echo "Device reset" \
 	    && rm -f .last_load_marker
 
-# Reset watchdog timer on device
+# Reset OU's update states
+# by removing the /var and /updates directories from the SD card.
+# Useful for testing update functionality
 dev_remove_tmp_states: dev_reset_wdt | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/remove_tmp_states.py
 
+# Show version information Sequans firmware in the FiPy's LTE modem
 dev_lte_firmware_info: dev_reset_wdt | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/lte_firmware_info.py
 
-# Update modem firmware. Requires firmware to be present on SD card.
+# Update LTE modem firmware.
+# Requires firmware to be present on SD card.
 # Will go into an interactive mode and never exit.
 # Cannot be used in scripts.
 dev_lte_firmware_update: dev_reset_wdt dev_lte_firmware_info | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run --no-output on_device_scripts/lte_firmware_update.py
 	tio $(PORT)
 
-# Reset watchdog timer on device
+# Script to set the device RTCs to different times for testing
 dev_mess_with_time: dev_reset_wdt | .venv
 	. .venv/bin/activate && ampy --port $(PORT) run on_device_scripts/mess_with_time.py
 

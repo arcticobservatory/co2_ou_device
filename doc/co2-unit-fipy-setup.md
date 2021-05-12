@@ -26,10 +26,16 @@ The others will fall back to defaults if not specified.
 
 For additional configuration options, see [Optional Configuration](#optional_config) below.
 
-### Flash FiPy firmware (version 1.18.2.r4)
+### Flash FiPy firmware (version 1.18.2.r4 or 1.20.0.rc10)
+
+The CO2 Units are picky about firmware revisions. Use
+
+- Pycom firmware version 1.20.0.rc10 for repo versions d03_2020_sep and up
+- Pycom firmware version 1.18.2.r4 for earlier repo versions
+
+To install:
 
 1. Download firmware tarball from [Pycom's FiPy firmware downloads page](https://software.pycom.io/downloads/FiPy.html)
-    - CO2 units use version 1.18.2.r4
 2. Get a SIM card for the FiPy and load it into the FiPy's SIM slot
     - Be sure to write down the SIM card's ICC and mobile numbers for future reference
 3. Place FiPy in a Pymakr board in reset mode (wire connecting GND and G23).
