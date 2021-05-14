@@ -140,6 +140,12 @@ mkdir -p $(dirname $idfile) \
 && cat $idfile
 ```
 
+**Note**: Because the exact deployment site is not known until deployment,
+the `site_code` field given is normally a temporary name that is more of a
+nickname.
+See the [data layout document](co2-unit-data-layout.md) for an explanation
+for the confusing naming of OUs.
+
 ### Optional: Adjust schedule --> `/sd/conf/conf/schedule.json`
 
 The default schedule is below. If you want to adjust it, you can.

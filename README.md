@@ -6,32 +6,48 @@ developed at UiT The Arctic University of Norway
 as part of the Distributed Arctic Observatory project.
 These Observation Units are described in the paper:
 
-Murphy et al.\
+Murphy et al.
 "Experiences Building and Deploying
- Wireless Sensor Nodes for the Arctic Tundra,"\
+ Wireless Sensor Nodes for the Arctic Tundra,"
 in The 21st IEEE/ACM International Symposium on
-   Cluster, Cloud and Internet Computing (CCGrid 2021).\
+   Cluster, Cloud and Internet Computing (CCGrid 2021).
 Melbourne Australia, May 2021.
 
 The CO2 Observation Units are based on a FiPy microcontroller.
 They push data via LTE CAT-M1 to a server in the lab.
 
-Hardware and Software Setup
+For server code, see:
+<https://github.com/arcticobservatory/co2_ou_server>
+
+Additional Documentation
 --------------------------------------------------
 
+To build and setup a CO2 Observation Unit, see:
+
 - [Parts List](doc/co2-unit-parts-list.md)
-    --- detailed list of parts used to build the CO2 Observation Units
+    --- detailed list of parts used to build a CO2 Observation Units
 - [Circuit schematic (PDF)](doc/co2-unit-schematic-v1.pdf)
     --- diagram of hardware and pin connections
 - [FiPy/Unit Setup](doc/co2-unit-fipy-setup.md)
-    --- guide to installing the code on a FiPy and configuring the unit
+    --- guide to installing the code on a FiPy and configuring the OU
 
-Code Layout
+To set up a server for the CO2 OU data, see:
+
+- [co2_ou_server source repo](https://github.com/arcticobservatory/co2_ou_server)
+    --- code and info for the server
+
+For more information on OU data and operation, see:
+
+- [Data Layout](doc/co2-unit-data-layout.md)
+    --- detailed description of how the OU lays out data on the SD card,
+        and how that data is synced to the server
+
+Code Layout in this Repository
 --------------------------------------------------
 
 A Makefile controls many tasks including pre-compiling MicroPython bytecode and
 running unit tests. Makefile tasks can use the MicroPython Unix port to quickly
-run unit tests on the PC, without a FiPy (`make unittest` or default target).
+run unit tests on the PC, without a FiPy (`make unittest`, the default target).
 It can also push the code to the FiPy and the same run unit tests there (`make
 dev_unittest`).
 
@@ -53,15 +69,15 @@ Directories:
     --- MicroPython source code, ready to be loaded onto a FiPy
 - `src/lib/`
     --- Custom and third-party MicroPython libraries
+- `thirdparty/`
+    --- Third-party repos whose code we have adopted or adapted,
+        checked out as git submodules
 - `on_device_scripts/`
     --- Short MicroPython scripts to be run as batches on the device.
         Most have a corresponding `dev_<scriptname>` Makefile target
         that runs it (with dependencies).
 - `target/`
     --- Where compiled bytecode is deposited
-- `thirdparty/`
-    --- Third-party libs whose code we have adopted or adapted,
-        checked out as git submodules
 
 Scripts:
 
@@ -69,13 +85,13 @@ Scripts:
     --- GNU Make script with many tasks, see code for details
 - `ampy_load_src`
     --- A shell script to load the code onto a FiPy (if not using an IDE)
-- `create_code_update_dir`
-    --- A shell script to diff two versions of this code
-        and create an update that can be served to a deployed unit
 - `update_thirdparty_libs`
     --- A shell script to update git submodules
         and copy third-party code to `lib/`
         for use on the device
+- `create_code_update_dir`
+    --- A shell script to diff two versions of this code
+        and create an update that can be served to a deployed unit
 
 Repository Tags
 --------------------------------------------------
