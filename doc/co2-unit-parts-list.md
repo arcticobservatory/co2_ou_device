@@ -1,7 +1,7 @@
 Parts list for CO2 Observation Units
 ==================================================
 
-This the list of parts that were used to build the CO2 Observation Units
+This is the list of parts that were used to build the CO2 Observation Units
 that run this code, and estimated prices (converted from NOK to USD)
 as of Spring 2019 when the parts were purchased.
 

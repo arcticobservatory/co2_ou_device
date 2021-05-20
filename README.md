@@ -16,31 +16,30 @@ Melbourne Australia, May 2021.
 The CO2 Observation Units are based on a FiPy microcontroller.
 They push data via LTE CAT-M1 to a server in the lab.
 
-For server code, see:
-<https://github.com/arcticobservatory/co2_ou_server>
+This repository contains the MicroPython code that runs on the observation
+unit itself, plus documentation for building setting up the devices.
 
-Additional Documentation
---------------------------------------------------
+Repositories and Documentation Associated with this Project
+------------------------------------------------------------
 
-To build and setup a CO2 Observation Unit, see:
+- [co2_ou_device](https://github.com/arcticobservatory/co2_ou_device) repo
+    --- Code and documentation for the observation unit itself
 
-- [Parts List](doc/co2-unit-parts-list.md)
-    --- detailed list of parts used to build a CO2 Observation Units
-- [Circuit schematic (PDF)](doc/co2-unit-schematic-v1.pdf)
-    --- diagram of hardware and pin connections
-- [FiPy/Unit Setup](doc/co2-unit-fipy-setup.md)
-    --- guide to installing the code on a FiPy and configuring the OU
+    - [Parts List](https://github.com/arcticobservatory/co2_ou_device/blob/master/doc/co2-unit-parts-list.md)
+        --- parts used to build the observation units
+    - [Circuit Schematic](https://github.com/arcticobservatory/co2_ou_device/blob/master/doc/co2-unit-schematic-v1.pdf)
+        --- diagram of hardware and pin connections
+    - [FiPy/Observation Unit Setup](https://github.com/arcticobservatory/co2_ou_device/blob/master/doc/co2-unit-fipy-setup.md)
+        --- guide to installing the code on a FiPy and configuring the OU
+    - [Data Layout](https://github.com/arcticobservatory/co2_ou_device/blob/master/doc/co2-unit-data-layout.md)
+        --- OU naming, data directory structure, and data file formats
 
-To set up a server for the CO2 OU data, see:
+- [co2_ou_server](https://github.com/arcticobservatory/co2_ou_server) repo
+    --- Code and documentation for the companion server
 
-- [co2_ou_server source repo](https://github.com/arcticobservatory/co2_ou_server)
-    --- code and info for the server
-
-For more information on OU data and operation, see:
-
-- [Data Layout](doc/co2-unit-data-layout.md)
-    --- detailed description of how the OU lays out data on the SD card,
-        and how that data is synced to the server
+    - [Database Scripts](https://github.com/arcticobservatory/co2_ou_server/tree/master/database)
+        --- Shell scripts that import the text-based CO2 data into a
+            SQLite database for analysis, plus Python scripts to generate plots
 
 Code Layout in this Repository
 --------------------------------------------------
@@ -66,7 +65,7 @@ to transfer files.
 Directories:
 
 - `src/`
-    --- MicroPython source code, ready to be loaded onto a FiPy
+    --- MicroPython source code, to be loaded onto a FiPy or optionally compiled first
 - `src/lib/`
     --- Custom and third-party MicroPython libraries
 - `thirdparty/`

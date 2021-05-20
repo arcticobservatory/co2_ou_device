@@ -237,9 +237,10 @@ a from-version, and a to-version,
 the script checks which files have changed between versions and copies
 them to the target directory.
 
-**NOTE**: These the script was written before the switch
-to precompiled bytecode `*.mpy` files and
-needs to be updated to compile and copy bytecode instead of source.
+**NOTE**: This script was written when we were loading the source `.py` files
+directly onto the FiPy without precompiling them to bytecode,
+and so it only gathers the updated source files.
+It needs to be updated to add the compilation step.
 
 ### To Update Config, e.g. Give the OU a New Nickname
 
