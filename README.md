@@ -1,7 +1,8 @@
 CO2 Observation Unit for FiPy --- MicroPython Code
 ==================================================
 
-This is MicroPython code for a CO2 sensor, or "Observation Unit",
+This is MicroPython code for a
+CO2 sensor, or "Observation Unit",
 developed at UiT The Arctic University of Norway
 as part of the Distributed Arctic Observatory project.
 These Observation Units are described in the paper:
@@ -12,6 +13,7 @@ Murphy et al.
 in The 21st IEEE/ACM International Symposium on
    Cluster, Cloud and Internet Computing (CCGrid 2021).
 Melbourne Australia, May 2021.
+<https://doi.org/10.1109/CCGrid51090.2021.00047>
 
 The CO2 Observation Units are based on a FiPy microcontroller.
 They push data via LTE CAT-M1 to a server in the lab.
